@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<head>
+	<title>Settings - BookShop</title>
+	<style>
+		html, body {
+			height: 100%;
+			margin: 0;
+			padding: 0;
+			background-color: lightblue;
+		}
+		#header_table {
+			width: 100%;
+			height: 50px;
+			background-color: blue;
+			color: white;
+			padding: 0 20px;
+		}
+		#main_layout {
+			width: 100%;
+			height: calc(100vh - 50px);
+			border-collapse: collapse;
+		}
+		#sidebar {
+			width: 220px;
+			vertical-align: top;
+			background-color: #4c63ee;
+			padding-top: 10px;
+		}
+		#sidebar a {
+			display: block;
+			color: white;
+			text-decoration: none;
+			font-weight: bold;
+			padding: 12px 20px;
+		}
+		#active_menu {
+			background-color: grey;
+		}
+		#content {
+			vertical-align: top;
+			padding: 20px;
+		}
+		fieldset {
+			border-color: blue;
+			background-color: white;
+			margin-bottom: 20px;
+			padding: 15px;
+		}
+		.logout-btn {
+			background-color: grey;
+			color: white;
+			padding: 10px 20px;
+			border: none;
+			cursor: pointer;
+			font-weight: bold;
+			width: 100%;
+		}
+		.blue-btn {
+			background-color: blue;
+			color: white;
+			border: none;
+			padding: 10px 20px;
+			cursor: pointer;
+			font-weight: bold;
+		}
+		input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, textarea:focus {
+			background-color: grey;
+			color: white;
+		}
+	</style>
+</head>
+<body>
+
+	<table id="header_table">
+		<tr>
+			<td>
+				<img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
+				<b>BOOKSHOP MANAGEMENT</b>
+			</td>
+			<td align="right"><b>SETTINGS</b></td>
+		</tr>
+	</table>
+
+	<table id="main_layout">
+		<tr>
+			<td id="sidebar">
+				<a href="admin_dashboard.html">DASHBOARD</a>
+				<a href="admin_inventory.html">BOOKS & INVENTORY</a>
+				<a href="admin_users.html">USERS</a>
+				<a href="profile_settings.html" id="active_menu">SETTINGS</a>
+				<a href="#">ANALYTICS</a>
+				<br><br>
+				<div style="padding: 0 20px;">
+					<a href="login.html" style="padding: 0;"><button type="button" class="logout-btn">LOG OUT</button></a>
+				</div>
+			</td>
+			<td id="content">
+				<form action="#" method="POST">
+					<fieldset>
+						<legend>Personal Information</legend>
+						<label>Name :</label><br>
+						<input type="text" name="FName" id="FName"><br><br>
+
+						<label>Email :</label><br>
+						<input type="email" name="EmailAdd" id="EmailAdd"><br><br>
+
+						<label>Contact :</label><br>
+						<input type="text" name="PHnumber" id="PHnumber"><br><br>
+
+						<label>Shipping Address :</label><br>
+						<textarea name="address" id="address" rows="3" cols="40"></textarea>
+					</fieldset>
+
+					<fieldset>
+						<legend>Security Settings</legend>
+						<label>Current Password :</label><br>
+						<input type="password" name="CurPass" id="CurPass"><br><br>
+
+						<label>New Password :</label><br>
+						<input type="password" name="Pass" id="Pass"><br><br>
+
+						<label>Confirm Password :</label><br>
+						<input type="password" name="CPass" id="CPass"><br><br>
+					</fieldset>
+
+					<button type="submit" class="blue-btn">UPDATE PROFILE</button>
+				</form>
+			</td>
+		</tr>
+	</table>
+
+</body>
+</html>
