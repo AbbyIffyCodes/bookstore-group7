@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<head>
+    <title>Employee Transaction Log - BookShop</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: lightblue;
+        }
+
+        #header_table {
+            width: 100%;
+            height: 50px;
+            background-color: blue;
+            color: white;
+            padding: 0 20px;
+        }
+
+        #main_layout {
+            width: 100%;
+            height: calc(100vh - 50px);
+            border-collapse: collapse;
+        }
+
+        #sidebar {
+            width: 220px;
+            vertical-align: top;
+            background-color: #4c63ee;
+            padding-top: 10px;
+        }
+
+            #sidebar a {
+                display: block;
+                color: white;
+                text-decoration: none;
+                font-weight: bold;
+                padding: 12px 20px;
+            }
+
+        #active_menu {
+            background-color: grey;
+        }
+
+        #content {
+            vertical-align: top;
+            padding: 20px;
+        }
+
+        fieldset {
+            border-color: blue;
+            background-color: white;
+            margin-bottom: 20px;
+            padding: 15px;
+        }
+
+        .logout-btn {
+            background-color: grey;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        }
+
+        #inventory_table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+            #inventory_table th {
+                background-color: #5d83e1;
+                color: white;
+                padding: 12px;
+            }
+
+            #inventory_table td {
+                background-color: #5911eb;
+                color: white;
+                padding: 12px;
+                text-align: center;
+                font-weight: bold;
+            }
+    </style>
+</head>
+<body>
+
+    <table id="header_table">
+        <tr>
+            <td>
+                <img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
+                <b>BOOKSHOP</b>
+            </td>
+            <td align="right"><b>EMPLOYEE </b></td>
+        </tr>
+    </table>
+
+    <table id="main_layout">
+        <tr>
+            <td id="sidebar">
+                <a href="employee_dashboard.html">DASHBOARD</a>
+                <a href="employee_orders.html">ORDERS</a>
+                <a href="employee_billing.html">BILLING</a>
+                <a href="employee_stock.html" id="active_menu">STOCK</a>
+                <a href="profile_settings.html">SETTINGS</a>
+                <br><br>
+                <div style="padding: 0 20px;">
+                    <a href="login.html" style="padding: 0;"><button type="button" class="logout-btn">LOG OUT</button></a>
+                </div>
+            </td>
+            <td id="content">
+                <fieldset>
+                    <legend>STOCK CHECKER</legend>
+
+                    <table id="inventory_table" border="1">
+                        <tr>
+                            <th>ID</th>
+                            <th>TYPE</th>
+                            <th>DETAILS</th>
+                            <th>QTY</th>
+                            <th>DATE & TIME</th>
+                            <th>USER</th>
+                        </tr>
+                        <tr>
+                            <td>TXN1001</td>
+                            <td>IN STORE</td>
+                            <td>THE ALCHEMIST</td>
+                            <td>01</td>
+                            <td>25 MAY 2026 ,11:34 AM</td>
+                            <td>EMPLOYEE</td>
+                        </tr>
+                        <tr>
+                            <td>TXN1002</td>
+                            <td>ONLINE</td>
+                            <td>ATOMIC HABITS</td>
+                            <td>03</td>
+                            <td>25 MAY 2026 ,11:24 AM</td>
+                            <td>EMPLOYEE</td>
+                        </tr>
+                        <tr>
+                            <td>TXN1003</td>
+                            <td>IN STORE</td>
+                            <td>A Song of Ice and Fire</td>
+                            <td>01</td>
+                            <td>25 MAY 2026 ,10:54 AM</td>
+                            <td>EMPLOYEE</td>
+                        </tr>
+                        <tr>
+                            <td>TXN1004</td>
+                            <td>ONLINE</td>
+                            <td>Fire & Blood</td>
+                            <td>01</td>
+                            <td>25 MAY 2026 ,10:34 AM</td>
+                            <td>EMPLOYEE</td>
+                        </tr>
+                        <tr>
+                            <td>TXN1005</td>
+                            <td>IN STORE</td>
+                            <td>RICH DAD POOR DAD</td>
+                            <td>02</td>
+                            <td>25 MAY 2026 ,10:04 AM</td>
+                            <td>EMPLOYEE</td>
+                        </tr>
+                        <tr>
+                            <td>TXN1006</td>
+                            <td>ONLINE</td>
+                            <td>CLEAN CODE</td>
+                            <td>01</td>
+                            <td>25 MAY 2026 ,10:00 AM</td>
+                            <td>EMPLOYEE</td>
+                        </tr>
+                    </table>
+                </fieldset>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<head>
+    <title>Billing Counter - BookShop</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: lightblue;
+        }
+
+        #header_table {
+            width: 100%;
+            height: 50px;
+            background-color: blue;
+            color: white;
+            padding: 0 20px;
+        }
+
+        #main_layout {
+            width: 100%;
+            height: calc(100vh - 50px);
+            border-collapse: collapse;
+        }
+
+        #sidebar {
+            width: 220px;
+            vertical-align: top;
+            background-color: #4c63ee;
+            padding-top: 10px;
+        }
+
+            #sidebar a {
+                display: block;
+                color: white;
+                text-decoration: none;
+                font-weight: bold;
+                padding: 12px 20px;
+            }
+
+        #active_menu {
+            background-color: grey;
+        }
+
+        #content {
+            vertical-align: top;
+            padding: 20px;
+        }
+
+        fieldset {
+            border-color: blue;
+            background-color: white;
+            margin-bottom: 20px;
+            padding: 15px;
+        }
+
+        .logout-btn {
+            background-color: grey;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        }
+
+        .blue-btn {
+            background-color: blue;
+            color: white;
+            border: none;
+            padding: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        }
+
+        .green-btn {
+            background-color: green;
+            color: white;
+            border: none;
+            padding: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        }
+
+        #items_table {
+            width: 100%;
+            border-collapse: collapse;
+            border: none;
+        }
+
+            #items_table th {
+                background-color: #5d83e1;
+                color: white;
+                padding: 12px;
+            }
+
+            #items_table td {
+                background-color: #5911eb;
+                color: white;
+                padding: 12px;
+                text-align: center;
+                font-weight: bold;
+            }
+
+        #summary_table {
+            width: 100%;
+            border-collapse: collapse;
+            border: none;
+        }
+
+            #summary_table td {
+                padding: 8px 0;
+                font-weight: bold;
+            }
+
+        #actions_table {
+            width: 100%;
+            border-collapse: collapse;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+    <table id="header_table">
+        <tr>
+            <td>
+                <img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
+                <b>BOOKSHOP</b>
+            </td>
+            <td align="right"><b>EMPLOYEE </b></td>
+        </tr>
+    </table>
+
+    <table id="main_layout">
+        <tr>
+            <td id="sidebar">
+                <a href="employee_dashboard.html">DASHBOARD</a>
+                <a href="employee_orders.html">ORDERS</a>
+                <a href="employee_billing.html" id="active_menu">BILLING</a>
+                <a href="employee_stock.html">STOCK</a>
+                <a href="profile_settings.html">SETTINGS</a>
+                <br><br>
+                <div style="padding: 0 20px;">
+                    <a href="login.html" style="padding: 0;"><button type="button" class="logout-btn">LOG OUT</button></a>
+                </div>
+            </td>
+            <td id="content">
+                <table width="100%" cellspacing="0" cellpadding="0" border="0">
+                    <tr>
+                  
+                        <td valign="top" width="65%" style="padding-right: 15px;">
+                            <fieldset>
+                                <legend>Search Book</legend>
+                                <input type="text" placeholder="Search by title,author or barcode..." style="width: 98%; padding: 8px;">
+                            </fieldset>
+
+                            <fieldset>
+                                <legend>Selected Items</legend>
+                                <table id="items_table">
+                                    <tr>
+                                        <th>BOOK</th>
+                                        <th>PRICE</th>
+                                        <th>QTY</th>
+                                        <th>TOTAL</th>
+                                    </tr>
+                                    <tr>
+                                        <td>CLEAN CODE</td>
+                                        <td>600TK</td>
+                                        <td>1</td>
+                                        <td>600TK</td>
+                                    </tr>
+                                    <tr>
+                                        <td>THE ALCHEMIST</td>
+                                        <td>500TK</td>
+                                        <td>1</td>
+                                        <td>500TK</td>
+                                    </tr>
+                                </table>
+                            </fieldset>
+                        </td>
+
+                        <td valign="top" width="35%">
+                            <fieldset>
+                                <legend>Bill Summary</legend>
+                                <table id="summary_table">
+                                    <tr>
+                                        <td>Items</td>
+                                        <td align="right">2</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Subtotal</td>
+                                        <td align="right">1160TK</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Discount</td>
+                                        <td align="right">0</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2"><hr></td>
+                                    </tr>
+                                    <tr>
+                                        <td><b>Total</b></td>
+                                        <td align="right"><b>1160TK</b></td>
+                                    </tr>
+                                </table>
+                            </fieldset>
+
+                            <table id="actions_table">
+                                <tr>
+                                    <td style="padding-bottom: 10px;">
+                                        <button type="button" class="green-btn">PRINT INVOICE</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <button type="button" class="blue-btn">COMPLETE</button>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>
