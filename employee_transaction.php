@@ -1,13 +1,13 @@
 <?php
 session_start();
 
-// Session protection
+
 if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'employee') {
     header("Location: login.php");
     exit();
 }
 
-// Handle Logout action
+
 if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     session_unset();
     session_destroy();
@@ -15,7 +15,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     exit();
 }
 
-// Session transaction inventory storage
+
 if (!isset($_SESSION['stock_transactions'])) {
     $_SESSION['stock_transactions'] = [
         ["id" => "TXN1001", "type" => "IN STORE", "details" => "THE ALCHEMIST", "qty" => 1, "datetime" => "25 MAY 2026 ,11:34 AM", "user" => "EMPLOYEE"],
