@@ -1,13 +1,13 @@
 <?php
 session_start();
 
-// Session protection for employee role
+
 if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'employee') {
     header("Location: login.php");
     exit();
 }
 
-// Handle Logout action
+
 if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     session_unset();
     session_destroy();
