@@ -1,13 +1,13 @@
 <?php
 session_start();
 
-// Session protection
+
 if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'employee') {
     header("Location: login.php");
     exit();
 }
 
-// Handle Logout action
+
 if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     session_unset();
     session_destroy();
@@ -15,7 +15,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     exit();
 }
 
-// Initializing billing items in session
+
 if (!isset($_SESSION['billing_cart'])) {
     $_SESSION['billing_cart'] = [
         ["title" => "CLEAN CODE", "price" => 600, "qty" => 1],
@@ -26,7 +26,7 @@ if (!isset($_SESSION['billing_cart'])) {
 $errors = [];
 $success_msg = "";
 
-// PHP Form Validation & Processing
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $action = $_POST['action'] ?? '';
 
@@ -63,7 +63,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 }
 
-// Calculations
+
 $total_items = 0;
 $subtotal = 0;
 foreach ($_SESSION['billing_cart'] as $item) {
