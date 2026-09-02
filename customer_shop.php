@@ -1,91 +1,104 @@
 <?php
 session_start();
+require_once 'dbconnection.php';
 
-// Session Access Control Check
-if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'customer') {
+if (!isset($_SESSION['user_role']) || strtolower($_SESSION['user_role']) !== 'customer') {
     header("Location: login.php");
     exit();
 }
 
-// Initialize session cart array if not already present
 if (!isset($_SESSION['cart'])) {
     $_SESSION['cart'] = [];
 }
 
+
+if (isset($_GET['action']) && $_GET['action'] === 'search_books') {
+    header('Content-Type: application/json');
+
+    $category = $_GET['category'] ?? '';
+    $query = $_GET['query'] ?? '';
+
+    $sql = "SELECT BookID, Title, Price, Category, Image FROM books WHERE Title LIKE ?";
+    $searchTerm = "%" . $query . "%";
+
+    if (!empty($category) && $category !== 'All') {
+        $sql .= " AND Category = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("ss", $searchTerm, $category);
+    } else {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $searchTerm);
+    }
+
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $books = [];
+
+    while ($row = $result->fetch_assoc()) {
+        $books[] = [
+            'id'       => $row['BookID'],
+            'title'    => $row['Title'],
+            'price'    => $row['Price'],
+            'category' => $row['Category'],
+            'img'      => !empty($row['Image']) ? $row['Image'] : 'images/default_cover.jpg'
+        ];
+    }
+
+    echo json_encode($books);
+    exit; 
+}
+
 $message = "";
 
-// Array of 20 sample books categorized for local filtering
-$books = [
-    // Programming
-    ['id' => 1, 'title' => 'Clean Code', 'author' => 'Robert C. Martin', 'price' => 600, 'category' => 'Programming', 'img' => 'clean_code.jpg'],
-    ['id' => 2, 'title' => 'The Pragmatic Programmer', 'author' => 'Andrew Hunt', 'price' => 750, 'category' => 'Programming', 'img' => 'pragmatic.jpg'],
-    ['id' => 3, 'title' => 'Design Patterns', 'author' => 'Erich Gamma', 'price' => 900, 'category' => 'Programming', 'img' => 'patterns.jpg'],
-    ['id' => 4, 'title' => 'You Dont Know JS', 'author' => 'Kyle Simpson', 'price' => 450, 'category' => 'Programming', 'img' => 'ydkjs.jpg'],
 
-    // Fiction
-    ['id' => 5, 'title' => 'The Alchemist', 'author' => 'Paulo Coelho', 'price' => 500, 'category' => 'Fiction', 'img' => 'alchemist.jpg'],
-    ['id' => 6, 'title' => '1984', 'author' => 'George Orwell', 'price' => 400, 'category' => 'Fiction', 'img' => '1984.jpg'],
-    ['id' => 7, 'title' => 'To Kill a Mockingbird', 'author' => 'Harper Lee', 'price' => 480, 'category' => 'Fiction', 'img' => 'mockingbird.jpg'],
-    ['id' => 8, 'title' => 'The Great Gatsby', 'author' => 'F. Scott Fitzgerald', 'price' => 350, 'category' => 'Fiction', 'img' => 'gatsby.jpg'],
+$books = [];
+$query = "SELECT BookID, Title, Price, Category, Image FROM books";
+$result = $conn->query($query);
 
-    // Business
-    ['id' => 9, 'title' => 'The Business Book', 'author' => 'Sam Atkinson', 'price' => 1000, 'category' => 'Business', 'img' => 'business.jpg'],
-    ['id' => 10, 'title' => 'Rich Dad Poor Dad', 'author' => 'Robert Kiyosaki', 'price' => 550, 'category' => 'Business', 'img' => 'richdad.jpg'],
-    ['id' => 11, 'title' => 'The Lean Startup', 'author' => 'Eric Ries', 'price' => 650, 'category' => 'Business', 'img' => 'lean.jpg'],
-    ['id' => 12, 'title' => 'Zero to One', 'author' => 'Peter Thiel', 'price' => 580, 'category' => 'Business', 'img' => 'zerotoone.jpg'],
+if ($result && $result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        $books[] = [
+            'id'       => $row['BookID'],
+            'title'    => $row['Title'],
+            'price'    => $row['Price'],
+            'category' => $row['Category'],
+            'img'      => !empty($row['Image']) ? $row['Image'] : 'images/default_cover.jpg'
+        ];
+    }
+}
 
-    // Science
-    ['id' => 13, 'title' => 'Sapiens', 'author' => 'Yuval Noah Harari', 'price' => 700, 'category' => 'Science', 'img' => 'sapiens.jpg'],
-    ['id' => 14, 'title' => 'A Brief History of Time', 'author' => 'Stephen Hawking', 'price' => 600, 'category' => 'Science', 'img' => 'time.jpg'],
-    ['id' => 15, 'title' => 'Cosmos', 'author' => 'Carl Sagan', 'price' => 650, 'category' => 'Science', 'img' => 'cosmos.jpg'],
 
-    // History
-    ['id' => 16, 'title' => 'Guns, Germs, and Steel', 'author' => 'Jared Diamond', 'price' => 800, 'category' => 'History', 'img' => 'guns.jpg'],
-    ['id' => 17, 'title' => 'The Silk Roads', 'author' => 'Peter Frankopan', 'price' => 850, 'category' => 'History', 'img' => 'silk.jpg'],
-
-    // Self Help
-    ['id' => 18, 'title' => 'Atomic Habits', 'author' => 'James Clear', 'price' => 600, 'category' => 'Self Help', 'img' => 'atomichabits.jpg'],
-    ['id' => 19, 'title' => 'Deep Work', 'author' => 'Cal Newport', 'price' => 520, 'category' => 'Self Help', 'img' => 'deepwork.jpg'],
-    ['id' => 20, 'title' => 'Psychology of Money', 'author' => 'Morgan Housel', 'price' => 550, 'category' => 'Self Help', 'img' => 'money.jpg']
-];
-
-// Handle PHP Add to Cart Form Submission
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['add_to_cart'])) {
     $book_id = intval($_POST['book_id']);
 
     if ($book_id <= 0) {
         $message = "Invalid book selection.";
     } else {
-        // Find selected book from catalog array
-        $selected_book = null;
-        foreach ($books as $b) {
-            if ($b['id'] === $book_id) {
-                $selected_book = $b;
-                break;
-            }
-        }
+        $stmt = $conn->prepare("SELECT BookID, Title, Price, Image FROM books WHERE BookID = ?");
+        $stmt->bind_param("i", $book_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
 
-        if ($selected_book) {
+        if ($res && $selected_book = $res->fetch_assoc()) {
             if (isset($_SESSION['cart'][$book_id])) {
                 $_SESSION['cart'][$book_id]['qty'] += 1;
             } else {
                 $_SESSION['cart'][$book_id] = [
-                    'id' => $selected_book['id'],
-                    'title' => $selected_book['title'],
-                    'author' => $selected_book['author'],
-                    'price' => $selected_book['price'],
-                    'image' => $selected_book['img'],
-                    'qty' => 1
+                    'id'    => $selected_book['BookID'],
+                    'title' => $selected_book['Title'],
+                    'price' => $selected_book['Price'],
+                    'image' => !empty($selected_book['Image']) ? $selected_book['Image'] : 'images/default_cover.jpg',
+                    'qty'   => 1
                 ];
             }
-            $message = "Added '" . htmlspecialchars($selected_book['title']) . "' to your cart!";
+            $message = "Added '" . htmlspecialchars($selected_book['Title']) . "' to your cart!";
         } else {
             $message = "Book not found.";
         }
+        $stmt->close();
     }
 }
 
-// Total quantity count for header link
 $total_cart_items = 0;
 foreach ($_SESSION['cart'] as $item) {
     $total_cart_items += $item['qty'];
@@ -207,7 +220,6 @@ foreach ($_SESSION['cart'] as $item) {
             font-size: 15px;
         }
 
-        /* Responsive Grid for 20 Books */
         .grid-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -229,25 +241,19 @@ foreach ($_SESSION['cart'] as $item) {
             object-fit: cover;
             margin-bottom: 15px;
             box-shadow: 0px 3px 6px rgba(0,0,0,0.2);
+            border-radius: 2px;
         }
 
         .book-title {
             font-size: 15px;
             margin: 5px 0 2px 0;
             text-align: left;
-            font-weight: normal;
-        }
-
-        .book-author {
-            font-size: 13px;
-            color: #555;
-            margin: 0 0 4px 0;
-            text-align: left;
+            font-weight: bold;
         }
 
         .book-price {
             font-size: 14px;
-            margin: 0 0 15px 0;
+            margin: 5px 0 15px 0;
             text-align: left;
         }
 
@@ -266,7 +272,6 @@ foreach ($_SESSION['cart'] as $item) {
             background-color: #3b50cb;
         }
 
-        /* Banner Features */
         .features-row {
             width: 100%;
             text-align: center;
@@ -317,7 +322,7 @@ foreach ($_SESSION['cart'] as $item) {
                 <span>BookShop</span>
             </td>
             <td class="search-box" width="50%" align="center">
-                <input type="text" id="searchInput" placeholder="Search books,author,category..." onkeyup="filterBooks()">
+                <input type="text" id="searchInput" placeholder="Search books, category...">
             </td>
             <td class="header-links" width="25%">
                 <a href="customer_cart.php">Cart(<span id="cart_counter_val"><?php echo $total_cart_items; ?></span>)</a>
@@ -326,19 +331,17 @@ foreach ($_SESSION['cart'] as $item) {
         </tr>
 
         <tr>
-            <!-- Sidebar Filtering Links -->
             <td id="sidebar">
                 <h2>Categories</h2>
-                <span class="cat-link active" onclick="filterCategory('All', this)">All Books</span>
-                <span class="cat-link" onclick="filterCategory('Fiction', this)">Fiction</span>
-                <span class="cat-link" onclick="filterCategory('Programming', this)">Programming</span>
-                <span class="cat-link" onclick="filterCategory('Science', this)">Science</span>
-                <span class="cat-link" onclick="filterCategory('Business', this)">Business</span>
-                <span class="cat-link" onclick="filterCategory('History', this)">History</span>
-                <span class="cat-link" onclick="filterCategory('Self Help', this)">Self Help</span>
+                <span class="cat-link active" onclick="selectCategory('All', this)">All Books</span>
+                <span class="cat-link" onclick="selectCategory('Fiction', this)">Fiction</span>
+                <span class="cat-link" onclick="selectCategory('Programming', this)">Programming</span>
+                <span class="cat-link" onclick="selectCategory('Science', this)">Science</span>
+                <span class="cat-link" onclick="selectCategory('Business', this)">Business</span>
+                <span class="cat-link" onclick="selectCategory('History', this)">History</span>
+                <span class="cat-link" onclick="selectCategory('Self Help', this)">Self Help</span>
             </td>
 
-            <!-- Main Shop Display -->
             <td id="content_area">
                 <a href="customer_dashboard.php" class="nav-dashboard-link">&larr; Back to Dashboard</a>
 
@@ -348,16 +351,15 @@ foreach ($_SESSION['cart'] as $item) {
 
                 <div class="section-header">
                     <h2>Featured Books</h2>
-                    <a href="javascript:void(0)" onclick="filterCategory('All', null)">View All</a>
+                    <a href="javascript:void(0)" onclick="selectCategory('All', null)">View All</a>
                 </div>
 
                 <div class="grid-container" id="booksGrid">
                     <?php foreach ($books as $book): ?>
-                        <div class="book-card" data-category="<?php echo htmlspecialchars($book['category']); ?>" data-title="<?php echo htmlspecialchars(strtolower($book['title'])); ?>" data-author="<?php echo htmlspecialchars(strtolower($book['author'])); ?>">
+                        <div class="book-card" data-category="<?php echo htmlspecialchars($book['category'] ?? ''); ?>" data-title="<?php echo htmlspecialchars(strtolower($book['title'])); ?>">
                             <img src="<?php echo htmlspecialchars($book['img']); ?>" alt="<?php echo htmlspecialchars($book['title']); ?>">
                             <div class="book-title"><?php echo htmlspecialchars($book['title']); ?></div>
-                            <div class="book-author"><?php echo htmlspecialchars($book['author']); ?></div>
-                            <div class="book-price"><?php echo htmlspecialchars($book['price']); ?>TK</div>
+                            <div class="book-price"><?php echo htmlspecialchars($book['price']); ?> TK</div>
 
                             <form method="POST" action="" onsubmit="return validateAddToCart(this);">
                                 <input type="hidden" name="add_to_cart" value="1">
@@ -370,10 +372,6 @@ foreach ($_SESSION['cart'] as $item) {
 
                 <table class="features-row">
                     <tr>
-                        <td class="feature-box">
-                            <h4>Free Delivery</h4>
-                            <p>On orders above 5000tk</p>
-                        </td>
                         <td class="feature-box">
                             <h4>Secure Payment</h4>
                             <p>100% secure payment</p>
@@ -389,42 +387,62 @@ foreach ($_SESSION['cart'] as $item) {
     </table>
 
     <script>
-        // JS Category Filter Logic
-        function filterCategory(category, element) {
-            const cards = document.querySelectorAll('.book-card');
-            cards.forEach(card => {
-                if (category === 'All' || card.getAttribute('data-category') === category) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
+        let currentSelectedCategory = 'All';
+
+        function fetchBooks() {
+            const searchQuery = document.getElementById('searchInput')?.value || '';
+
+            const params = new URLSearchParams({
+                action: 'search_books',
+                category: currentSelectedCategory,
+                query: searchQuery
             });
+
+            fetch(`customer_shop.php?${params.toString()}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const grid = document.getElementById('booksGrid');
+                grid.innerHTML = ''; 
+
+                if (data.length === 0) {
+                    grid.innerHTML = '<p>No books found.</p>';
+                    return;
+                }
+
+                data.forEach(book => {
+                    grid.innerHTML += `
+                        <div class="book-card" data-category="${book.category}" data-title="${book.title.toLowerCase()}">
+                            <img src="${book.img}" alt="${book.title}">
+                            <div class="book-title">${book.title}</div>
+                            <div class="book-price">${book.price} TK</div>
+                            <form method="POST" action="" onsubmit="return validateAddToCart(this);">
+                                <input type="hidden" name="add_to_cart" value="1">
+                                <input type="hidden" name="book_id" value="${book.id}">
+                                <button type="submit" class="add-btn">Add to Cart</button>
+                            </form>
+                        </div>
+                    `;
+                });
+            })
+            .catch(error => console.error('Error fetching books:', error));
+        }
+
+        function selectCategory(category, element) {
+            currentSelectedCategory = category;
 
             if (element) {
                 document.querySelectorAll('.cat-link').forEach(link => link.classList.remove('active'));
                 element.classList.add('active');
             }
+
+            fetchBooks();
         }
 
-        // JS Real-time Dynamic Search Bar Logic
-        function filterBooks() {
-            const query = document.getElementById('searchInput').value.toLowerCase().trim();
-            const cards = document.querySelectorAll('.book-card');
-
-            cards.forEach(card => {
-                const title = card.getAttribute('data-title');
-                const author = card.getAttribute('data-author');
-                const category = card.getAttribute('data-category').toLowerCase();
-
-                if (title.includes(query) || author.includes(query) || category.includes(query)) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        }
-
-        // JS Validation on Add to Cart
         function validateAddToCart(form) {
             const bookId = form.book_id.value;
             if (!bookId || bookId <= 0) {
@@ -433,6 +451,8 @@ foreach ($_SESSION['cart'] as $item) {
             }
             return true;
         }
+
+        document.getElementById('searchInput')?.addEventListener('input', fetchBooks);
     </script>
 </body>
 </html>

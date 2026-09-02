@@ -1,47 +1,44 @@
 <?php
 session_start();
+require_once 'dbconnection.php';
 
-// Session Access Control Check
-if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'customer') {
+
+if (!isset($_SESSION['user_role']) || strtolower($_SESSION['user_role']) !== 'customer') {
     header("Location: login.php");
     exit();
 }
 
-// Initialize session order history with default mock items if empty
-if (!isset($_SESSION['order_history'])) {
-    $_SESSION['order_history'] = [
-        [
-            'order_id' => '#ORD1001',
-            'date'     => '9 March 2026',
-            'items'    => 4,
-            'amount'   => 2600,
-            'status'   => 'Delivered'
-        ],
-        [
-            'order_id' => '#ORD1002',
-            'date'     => '26 May 2026',
-            'items'    => 1,
-            'amount'   => 740,
-            'status'   => 'Delivered'
-        ],
-        [
-            'order_id' => '#ORD1003',
-            'date'     => '8 June 2026',
-            'items'    => 2,
-            'amount'   => 1360,
-            'status'   => 'Delivered'
-        ],
-        [
-            'order_id' => '#ORD1004',
-            'date'     => '31 July 2026',
-            'items'    => 3,
-            'amount'   => 2140,
-            'status'   => 'Pending'
-        ]
-    ];
+$user_id = $_SESSION['user_id'] ?? 0;
+$order_history = [];
+
+
+if ($user_id > 0) {
+    $query = "SELECT o.OrderID, o.OrderNumber, o.OrderDate, o.TotalAmount, o.Status, 
+                     IFNULL(SUM(oi.Quantity), 0) AS TotalItems
+              FROM orders o
+              LEFT JOIN orderitems oi ON o.OrderID = oi.OrderID
+              WHERE o.UserID = ?
+              GROUP BY o.OrderID
+              ORDER BY o.OrderID DESC";
+
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    while ($row = $res->fetch_assoc()) {
+        $order_history[] = [
+            'order_id' => $row['OrderNumber'],
+            'date'     => date('j F Y', strtotime($row['OrderDate'])),
+            'items'    => $row['TotalItems'],
+            'amount'   => $row['TotalAmount'],
+            'status'   => $row['Status']
+        ];
+    }
+    $stmt->close();
 }
 
-// Ensure dynamic item calculation for navigation header
+
 $total_cart_items = 0;
 if (isset($_SESSION['cart']) && is_array($_SESSION['cart'])) {
     foreach ($_SESSION['cart'] as $item) {
@@ -191,7 +188,7 @@ if (isset($_SESSION['cart']) && is_array($_SESSION['cart'])) {
                 <a href="customer_dashboard.php" class="back-link">&larr; Back to Dashboard</a>
 
                 <div id="history_box">
-                    <?php if (empty($_SESSION['order_history'])): ?>
+                    <?php if (empty($order_history)): ?>
                         <div class="empty-history">No orders have been placed yet.</div>
                     <?php else: ?>
                         <table class="history-table">
@@ -205,9 +202,9 @@ if (isset($_SESSION['cart']) && is_array($_SESSION['cart'])) {
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($_SESSION['order_history'] as $order): ?>
+                                <?php foreach ($order_history as $order): ?>
                                     <tr>
-                                        <td><?php echo htmlspecialchars($order['order_id']); ?></td>
+                                        <td>#<?php echo htmlspecialchars($order['order_id']); ?></td>
                                         <td><?php echo htmlspecialchars($order['date']); ?></td>
                                         <td><?php echo htmlspecialchars($order['items']); ?></td>
                                         <td><?php echo htmlspecialchars($order['amount']); ?>TK</td>

@@ -1,13 +1,14 @@
 <?php
 session_start();
+require_once 'dbconnection.php';
 
-// Session Access Control Check
-if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'customer') {
+
+if (!isset($_SESSION['user_role']) || strtolower($_SESSION['user_role']) !== 'customer') {
     header("Location: login.php");
     exit();
 }
 
-// Ensure session cart initialization
+
 if (!isset($_SESSION['cart'])) {
     $_SESSION['cart'] = [];
 }
@@ -16,10 +17,10 @@ $errors = [];
 $success_msg = "";
 $delivery_fee = 60;
 
-// Handle Cart Actions (Quantity Changes / Removal / Checkout)
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     
-    // Update Quantities
+   
     if (isset($_POST['action']) && $_POST['action'] === 'update_cart') {
         if (isset($_POST['quantities']) && is_array($_POST['quantities'])) {
             foreach ($_POST['quantities'] as $b_id => $qty) {
@@ -35,21 +36,55 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
     }
 
-    // Checkout Validation Logic
+    
     if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
         if (empty($_SESSION['cart'])) {
             $errors[] = "Your cart is completely empty. Please add books from the shop before checking out.";
         }
 
         if (empty($errors)) {
-            // Processing logic (e.g. order complete clear session cart)
-            $_SESSION['cart'] = [];
-            $success_msg = "Order placed successfully! Thank you for purchasing.";
+            $conn->begin_transaction();
+
+            try {
+                $user_id = $_SESSION['user_id'] ?? null;
+                $order_number = "ORD" . rand(1000, 9999);
+                $order_type = "Online";
+                $status = "Pending";
+
+                $calc_subtotal = 0;
+                foreach ($_SESSION['cart'] as $item) {
+                    $calc_subtotal += ($item['price'] * $item['qty']);
+                }
+                $calc_total = $calc_subtotal + $delivery_fee;
+
+             
+                $stmtOrder = $conn->prepare("INSERT INTO orders (OrderNumber, UserID, TotalAmount, OrderType, Status) VALUES (?, ?, ?, ?, ?)");
+                $stmtOrder->bind_param("sidss", $order_number, $user_id, $calc_total, $order_type, $status);
+                $stmtOrder->execute();
+                $order_id = $conn->insert_id;
+                $stmtOrder->close();
+
+         
+                $stmtItem = $conn->prepare("INSERT INTO orderitems (OrderID, BookID, Quantity, UnitPrice) VALUES (?, ?, ?, ?)");
+                foreach ($_SESSION['cart'] as $item) {
+                    $stmtItem->bind_param("iiid", $order_id, $item['id'], $item['qty'], $item['price']);
+                    $stmtItem->execute();
+                }
+                $stmtItem->close();
+
+                $conn->commit();
+                $_SESSION['cart'] = [];
+                $success_msg = "Order #" . $order_number . " placed successfully! Thank you for purchasing.";
+
+            } catch (Exception $e) {
+                $conn->rollback();
+                $errors[] = "Failed to place order: " . $e->getMessage();
+            }
         }
     }
 }
 
-// Calculate Dynamic Totals from Session
+
 $subtotal = 0;
 $total_items = 0;
 
@@ -301,7 +336,6 @@ $grand_total = ($subtotal > 0) ? ($subtotal + $delivery_fee) : 0;
 
                 <table id="cart_table">
                     <tr>
-                        <!-- Cart Container Left -->
                         <td id="cart_box">
                             <?php if (empty($_SESSION['cart'])): ?>
                                 <div class="empty-msg">Your cart is currently empty.</div>
@@ -348,7 +382,6 @@ $grand_total = ($subtotal > 0) ? ($subtotal + $delivery_fee) : 0;
 
                         <td width="4%"></td>
 
-                        <!-- Summary Container Right -->
                         <td id="summary_box">
                             <h2 class="summary-title">Order Summary</h2>
 
@@ -392,7 +425,6 @@ $grand_total = ($subtotal > 0) ? ($subtotal + $delivery_fee) : 0;
             
             if (currentVal + change >= 0) {
                 inputField.value = currentVal + change;
-                // Auto-submit backend session sync upon qty adjustment
                 document.getElementById('updateForm').submit();
             }
         }

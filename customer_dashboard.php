@@ -1,13 +1,14 @@
 <?php
 session_start();
+require_once 'dbconnection.php';
 
-// Session Access Control Check
-if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'customer') {
+
+if (!isset($_SESSION['user_role']) || strtolower($_SESSION['user_role']) !== 'customer') {
     header("Location: login.php");
     exit();
 }
 
-// Handle Logout Action
+
 if (isset($_POST['logout'])) {
     session_unset();
     session_destroy();
@@ -15,33 +16,42 @@ if (isset($_POST['logout'])) {
     exit();
 }
 
-// Initialize session order history if not already set
-if (!isset($_SESSION['order_history'])) {
-    $_SESSION['order_history'] = [
-        ['order_id' => '#ORD1001', 'date' => '9 March 2026', 'items' => 4, 'amount' => 2600, 'status' => 'Delivered'],
-        ['order_id' => '#ORD1002', 'date' => '26 May 2026', 'items' => 1, 'amount' => 740, 'status' => 'Delivered'],
-        ['order_id' => '#ORD1003', 'date' => '8 June 2026', 'items' => 2, 'amount' => 1360, 'status' => 'Delivered'],
-        ['order_id' => '#ORD1004', 'date' => '31 July 2026', 'items' => 3, 'amount' => 2140, 'status' => 'Pending']
-    ];
-}
+$user_id = $_SESSION['user_id'] ?? 0;
+$user_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : "CUSTOMER";
 
-// Calculate Dynamic Metrics for Customer Dashboard
+
 $total_orders = 0;
 $pending_orders = 0;
 $delivered_orders = 0;
+$recent_orders = [];
 
-if (isset($_SESSION['order_history']) && is_array($_SESSION['order_history'])) {
-    $total_orders = count($_SESSION['order_history']);
-    foreach ($_SESSION['order_history'] as $order) {
-        if (strtolower($order['status']) === 'pending') {
-            $pending_orders++;
-        } elseif (strtolower($order['status']) === 'delivered') {
-            $delivered_orders++;
-        }
+if ($user_id > 0) {
+
+    $stmtCount = $conn->prepare("SELECT 
+        COUNT(*) AS total, 
+        SUM(CASE WHEN LOWER(Status) = 'pending' THEN 1 ELSE 0 END) AS pending, 
+        SUM(CASE WHEN LOWER(Status) = 'delivered' THEN 1 ELSE 0 END) AS delivered 
+        FROM orders WHERE UserID = ?");
+    $stmtCount->bind_param("i", $user_id);
+    $stmtCount->execute();
+    $resCount = $stmtCount->get_result();
+    if ($row = $resCount->fetch_assoc()) {
+        $total_orders = $row['total'] ?? 0;
+        $pending_orders = $row['pending'] ?? 0;
+        $delivered_orders = $row['delivered'] ?? 0;
     }
-}
+    $stmtCount->close();
 
-$user_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : "TAHMID";
+    
+    $stmtRecent = $conn->prepare("SELECT OrderNumber, TotalAmount, Status FROM orders WHERE UserID = ? ORDER BY OrderID DESC LIMIT 4");
+    $stmtRecent->bind_param("i", $user_id);
+    $stmtRecent->execute();
+    $resRecent = $stmtRecent->get_result();
+    while ($rRow = $resRecent->fetch_assoc()) {
+        $recent_orders[] = $rRow;
+    }
+    $stmtRecent->close();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -64,7 +74,6 @@ $user_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : "TAHMID";
             border-collapse: collapse;
         }
 
-        /* Top Bar Layout */
         #top_bar {
             height: 70px;
             background-color: #4c63ee;
@@ -94,7 +103,6 @@ $user_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : "TAHMID";
             letter-spacing: 0.5px;
         }
 
-        /* Sidebar Navigation */
         #sidebar {
             width: 220px;
             background-color: #4c63ee;
@@ -137,14 +145,12 @@ $user_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : "TAHMID";
             background-color: #c8c8c8;
         }
 
-        /* Main Content Container */
         #content_area {
             vertical-align: top;
             padding: 30px;
             background-color: #ffffff;
         }
 
-        /* Stat Cards Layout */
         .stat-card {
             background-color: #4c63ee;
             color: white;
@@ -168,7 +174,6 @@ $user_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : "TAHMID";
             font-weight: bold;
         }
 
-        /* Recent Orders Section */
         .orders-card {
             background-color: #4c63ee;
             color: white;
@@ -207,14 +212,13 @@ $user_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : "TAHMID";
 <body>
 
     <table id="page_wrapper">
-        <!-- Top Header Navigation -->
         <tr id="top_bar">
             <td class="logo-section">
                 <img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo">
                 <span>BookShop</span>
             </td>
             <td class="user-greeting">
-                HI, <?php echo htmlspecialchars($user_name); ?>
+                HI, <?php echo htmlspecialchars(strtoupper($user_name)); ?>
             </td>
         </tr>
 
@@ -231,9 +235,7 @@ $user_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : "TAHMID";
                 </form>
             </td>
 
-            <!-- Main Content Area -->
             <td id="content_area">
-                <!-- Dynamic Summary Metrics Cards -->
                 <div>
                     <div class="stat-card">
                         <h4>TOTAL ORDERS</h4>
@@ -249,24 +251,19 @@ $user_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : "TAHMID";
                     </div>
                 </div>
 
-                <!-- Dynamic Recent Orders Display Box -->
                 <div class="orders-card">
                     <h3>RECENT ORDERS</h3>
 
-                    <?php if (empty($_SESSION['order_history'])): ?>
+                    <?php if (empty($recent_orders)): ?>
                         <div class="order-row">No orders placed yet.</div>
                     <?php else: ?>
-                        <?php 
-                        // Slice array to display only the top 4 recent orders
-                        $recent_orders = array_slice(array_reverse($_SESSION['order_history']), 0, 4);
-                        foreach ($recent_orders as $order): 
-                        ?>
+                        <?php foreach ($recent_orders as $order): ?>
                             <div class="order-row">
                                 <table role="presentation">
                                     <tr>
-                                        <td width="33%"><?php echo htmlspecialchars($order['order_id']); ?></td>
-                                        <td width="33%" align="center">BDT <?php echo htmlspecialchars($order['amount']); ?></td>
-                                        <td width="33%" align="right"><?php echo strtoupper(htmlspecialchars($order['status'])); ?></td>
+                                        <td width="33%">#<?php echo htmlspecialchars($order['OrderNumber']); ?></td>
+                                        <td width="33%" align="center">BDT <?php echo htmlspecialchars($order['TotalAmount']); ?></td>
+                                        <td width="33%" align="right"><?php echo strtoupper(htmlspecialchars($order['Status'])); ?></td>
                                     </tr>
                                 </table>
                             </div>
