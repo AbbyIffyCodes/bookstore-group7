@@ -1,22 +1,23 @@
 <?php
 session_start();
+require_once 'dbconnection.php';
 
 
-if (!isset($_SESSION['user_role'])) {
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role'])) {
     header("Location: login.php");
     exit();
 }
-
-$user_role = strtolower($_SESSION['user_role']); 
+$user_id = $_SESSION['user_id'];
+$user_role = strtoupper($_SESSION['user_role']); 
 
 switch ($user_role) {
-    case 'admin':
+    case 'ADMIN':
         $dashboard_url = 'admin_dashboard.php';
         break;
-    case 'employee':
+    case 'EMPLOYEE':
         $dashboard_url = 'employee_dashboard.php';
         break;
-    case 'customer':
+    case 'CUSTOMER':
     default:
         $dashboard_url = 'customer_dashboard.php';
         break;
@@ -25,6 +26,25 @@ switch ($user_role) {
 $errors = [];
 $success_msg = "";
 
+$userSql = "SELECT FullName, Email, Phone, ShippingAddress, PasswordHash FROM users WHERE UserID = ?";
+$userStmt = mysqli_prepare($conn, $userSql);
+
+if ($userStmt) {
+    mysqli_stmt_bind_param($userStmt, "i", $user_id);
+    mysqli_stmt_execute($userStmt);
+    $userResult = mysqli_stmt_get_result($userStmt);
+    $currentUser = mysqli_fetch_assoc($userResult);
+    mysqli_stmt_close($userStmt);
+}
+
+if (!$currentUser) {
+    die("User session invalid or user not found.");
+}
+
+$FName    = $currentUser['FullName'] ?? '';
+$EmailAdd = $currentUser['Email'] ?? '';
+$PHnumber = $currentUser['Phone'] ?? '';
+$address  = $currentUser['ShippingAddress'] ?? '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $FName    = trim($_POST['FName'] ?? '');
@@ -61,24 +81,69 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $errors[] = "Shipping address is required.";
     }
 
-    
+    $changePassword = false;
     if (!empty($CurPass) || !empty($Pass) || !empty($CPass)) {
         if (empty($CurPass)) {
             $errors[] = "Current password is required to set a new password.";
         }
-        if (strlen($Pass) < 6) {
+
+        elseif ($CurPass !== $currentUser['PasswordHash']) {
+            $errors[] = "Current password is incorrect.";
+        }
+        if (empty($Pass)) {
+            $errors[] = "New password is required.";
+        }
+        elseif (strlen($Pass) < 6) {
             $errors[] = "New password must be at least 6 characters long.";
         }
         if ($Pass !== $CPass) {
             $errors[] = "New password and Confirm password do not match.";
         }
+
+        if (empty($errors)) {
+            $changePassword = true;
+        }
     }
 
     
     if (empty($errors)) {
-        
-        $success_msg = "Profile updated successfully!";
+        $emailCheckSql = "SELECT UserID FROM users WHERE Email = ? AND UserID != ?";
+        $emailCheckStmt = mysqli_prepare($conn, $emailCheckSql);
+        if ($emailCheckStmt) {
+            mysqli_stmt_bind_param($emailCheckStmt, "si", $EmailAdd, $user_id);
+            mysqli_stmt_execute($emailCheckStmt);
+            mysqli_stmt_store_result($emailCheckStmt);
+            if (mysqli_stmt_num_rows($emailCheckStmt) > 0) {
+                $errors[] = "Email address is already in use by another account.";
+            }
+            mysqli_stmt_close($emailCheckStmt);
+        }
     }
+
+
+    if (empty($errors)) {
+        if ($changePassword) {
+            $updateSql = "UPDATE users SET FullName = ?, Email = ?, Phone = ?, ShippingAddress = ?, PasswordHash = ? WHERE UserID = ?";
+            $updateStmt = mysqli_prepare($conn, $updateSql);
+            mysqli_stmt_bind_param($updateStmt, "sssssi", $FName, $EmailAdd, $PHnumber, $address, $Pass, $user_id);
+        } else {
+            $updateSql = "UPDATE users SET FullName = ?, Email = ?, Phone = ?, ShippingAddress = ? WHERE UserID = ?";
+            $updateStmt = mysqli_prepare($conn, $updateSql);
+            mysqli_stmt_bind_param($updateStmt, "ssssi", $FName, $EmailAdd, $PHnumber, $address, $user_id);
+        }
+
+        if ($updateStmt) {
+            if (mysqli_stmt_execute($updateStmt)) {
+                $success_msg = "Profile updated successfully!";
+                $currentUser['PasswordHash'] = $changePassword ? $Pass : $currentUser['PasswordHash'];
+            } else {
+                $errors[] = "Failed to update profile. Please try again.";
+            }
+            mysqli_stmt_close($updateStmt);
+        } else {
+            $errors[] = "Database update query failed.";
+        }
+}
 }
 ?>
 <!DOCTYPE html>
@@ -219,19 +284,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 					<fieldset>
 						<legend>Personal Information</legend>
 						<label>Name :</label><br>
-						<input type="text" name="FName" id="FName" value="<?php echo htmlspecialchars($_POST['FName'] ?? ''); ?>"><br><br>
+						<input type="text" name="FName" id="FName" value="<?php echo htmlspecialchars($FName); ?>"><br><br>
 						<span id="err_FName" class="js-error"></span><br>
 
 						<label>Email :</label><br>
-						<input type="email" name="EmailAdd" id="EmailAdd" value="<?php echo htmlspecialchars($_POST['EmailAdd'] ?? ''); ?>"><br><br>
+						<input type="email" name="EmailAdd" id="EmailAdd" value="<?php echo htmlspecialchars($EmailAdd); ?>"><br><br>
 						<span id="err_EmailAdd" class="js-error"></span><br>
 
 						<label>Contact :</label><br>
-						<input type="text" name="PHnumber" id="PHnumber" value="<?php echo htmlspecialchars($_POST['PHnumber'] ?? ''); ?>"><br><br>
+						<input type="text" name="PHnumber" id="PHnumber" value="<?php echo htmlspecialchars($PHnumber); ?>"><br><br>
 						<span id="err_PHnumber" class="js-error"></span><br>
 
 						<label>Shipping Address :</label><br>
-						<textarea name="address" id="address" rows="3" cols="40"><?php echo htmlspecialchars($_POST['address'] ?? ''); ?></textarea>
+						<textarea name="address" id="address" rows="3" cols="40"><?php echo htmlspecialchars($address); ?></textarea>
 						<span id="err_address" class="js-error"></span>
 					</fieldset>
 

@@ -1,298 +1,255 @@
 <?php
-
 session_start();
+require_once 'dbconnection.php';
 
-if (!isset($_SESSION['inventory_db'])) {
-    $_SESSION['inventory_db'] = [
-        ["id" => "TXN1001", "title" => "THE ALCHEMIST", "stock" => 15, "price" => 450],
-        ["id" => "TXN1002", "title" => "ATOMIC HABITS", "stock" => 27, "price" => 520],
-        ["id" => "TXN1003", "title" => "A SONG OF ICE AND FIRE", "stock" => 35, "price" => 2225],
-        ["id" => "TXN1004", "title" => "RICH DAD POOR DAD", "stock" => 9, "price" => 570],
-    ];
+if (!isset($_SESSION['user_role']) || strtoupper($_SESSION['user_role']) !== 'ADMIN') {
+    header("Location: login.php");
+    exit();
 }
 
-$errors = [];
-$success_msg = "";
 
+$errors = $_SESSION['errors'] ?? [];
+$success_msg = $_SESSION['success_msg'] ?? "";
+unset($_SESSION['errors'], $_SESSION['success_msg']);
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $action = $_POST['action'] ?? '';
+    $post_errors = [];
 
     if ($action === "save_book") {
-        $book_id = trim($_POST['book_id'] ?? '');
-        $title   = trim($_POST['title'] ?? '');
-        $stock   = trim($_POST['stock'] ?? '');
-        $price   = trim($_POST['price'] ?? '');
+        $book_id = filter_input(INPUT_POST, 'book_id', FILTER_VALIDATE_INT);
+        $title = trim($_POST['title'] ?? '');
+        $stock = trim($_POST['stock'] ?? '');
+        $price = trim($_POST['price'] ?? '');
 
-        
-        if (empty($title)) {
-            $errors[] = "Book title is required.";
-        } elseif (strlen($title) < 2) {
-            $errors[] = "Book title must be at least 2 characters.";
+        if ($title === '') { 
+            $post_errors[] = "Book title is required."; 
+        }
+        if ($stock === '' || !ctype_digit($stock) || (int)$stock < 0) { 
+            $post_errors[] = "Stock must be a non-negative integer."; 
+        }
+        if ($price === '' || !is_numeric($price) || (float)$price <= 0) { 
+            $post_errors[] = "Price must be a positive number."; 
         }
 
-        
-        if ($stock === "") {
-            $errors[] = "Stock quantity is required.";
-        } elseif ((int)$stock < 0) {
-            $errors[] = "Stock must be a non-negative whole number.";
+
+        $has_file = isset($_FILES['book_image']) && $_FILES['book_image']['error'] === UPLOAD_ERR_OK;
+        $allowed_mime_types = ['image/jpeg', 'image/png', 'image/webp'];
+        $allowed_exts = ['jpg', 'jpeg', 'png', 'webp'];
+
+        if ($has_file) {
+            $file_tmp = $_FILES['book_image']['tmp_name'];
+            $file_ext = strtolower(pathinfo($_FILES['book_image']['name'], PATHINFO_EXTENSION));
+            
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime_type = finfo_file($finfo, $file_tmp);
+            finfo_close($finfo);
+
+            if (!in_array($file_ext, $allowed_exts, true) || !in_array($mime_type, $allowed_mime_types, true)) {
+                $post_errors[] = "Invalid image file type. Only JPG, PNG, and WEBP images are allowed.";
+            }
         }
 
-        
-        if ($price === "") {
-            $errors[] = "Price is required.";
-        } elseif (!is_numeric($price) || (float)$price <= 0) {
-            $errors[] = "Price must be a positive number.";
-        }
+        if (empty($post_errors)) {
+            $formatted_title = mb_strtoupper($title, 'UTF-8');
+            $stock_val = (int)$stock;
+            $price_val = (float)$price;
+            $upload_dir = "images/";
 
-      
-        if (empty($errors)) {
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+
             if (!empty($book_id)) {
-              
-                foreach ($_SESSION['inventory_db'] as &$book) {
-                    if ($book['id'] === $book_id) {
-                        $book['title'] = strtoupper(htmlspecialchars($title));
-                        $book['stock'] = (int)$stock;
-                        $book['price'] = (float)$price;
-                        $success_msg   = "Book " . htmlspecialchars($book_id) . " updated successfully!";
-                        break;
+             
+                if ($has_file) {
+                    $new_filename = "TXP" . $book_id . "_" . time() . "." . $file_ext;
+                    $target_path = $upload_dir . $new_filename;
+
+                    if (move_uploaded_file($_FILES['book_image']['tmp_name'], $target_path)) {
+                    
+                        $old_img_stmt = mysqli_prepare($conn, "SELECT Image FROM books WHERE BookID = ?");
+                        mysqli_stmt_bind_param($old_img_stmt, "i", $book_id);
+                        mysqli_stmt_execute($old_img_stmt);
+                        $res = mysqli_stmt_get_result($old_img_stmt);
+                        if ($row = mysqli_fetch_assoc($res)) {
+                            if (!empty($row['Image']) && file_exists($row['Image'])) {
+                                @unlink($row['Image']);
+                            }
+                        }
+                        mysqli_stmt_close($old_img_stmt);
+
+                        $stmt = mysqli_prepare($conn, "UPDATE books SET Title = ?, Stock = ?, Price = ?, Image = ? WHERE BookID = ?");
+                        mysqli_stmt_bind_param($stmt, "sidsi", $formatted_title, $stock_val, $price_val, $target_path, $book_id);
                     }
+                } else {
+                    $stmt = mysqli_prepare($conn, "UPDATE books SET Title = ?, Stock = ?, Price = ? WHERE BookID = ?");
+                    mysqli_stmt_bind_param($stmt, "sidi", $formatted_title, $stock_val, $price_val, $book_id);
                 }
+
+                if (isset($stmt) && mysqli_stmt_execute($stmt)) {
+                    $_SESSION['success_msg'] = "Book #" . $book_id . " updated successfully!";
+                } else {
+                    $_SESSION['errors'][] = "Database update error: " . mysqli_error($conn);
+                }
+                if (isset($stmt)) mysqli_stmt_close($stmt);
+
             } else {
                 
-                $next_id = "TXN" . (1001 + count($_SESSION['inventory_db']));
-                $_SESSION['inventory_db'][] = [
-                    "id"    => $next_id,
-                    "title" => strtoupper(htmlspecialchars($title)),
-                    "stock" => (int)$stock,
-                    "price" => (float)$price
-                ];
-                $success_msg = "New book successfully added!";
+                $stmt = mysqli_prepare($conn, "INSERT INTO books (Title, Stock, Price) VALUES (?, ?, ?)");
+                mysqli_stmt_bind_param($stmt, "sid", $formatted_title, $stock_val, $price_val);
+
+                if (mysqli_stmt_execute($stmt)) {
+                    $new_id = mysqli_insert_id($conn);
+
+                    if ($has_file) {
+                        $new_filename = "TXP" . $new_id . "_" . time() . "." . $file_ext;
+                        $target_path = $upload_dir . $new_filename;
+
+                        if (move_uploaded_file($_FILES['book_image']['tmp_name'], $target_path)) {
+                            $update_img_stmt = mysqli_prepare($conn, "UPDATE books SET Image = ? WHERE BookID = ?");
+                            mysqli_stmt_bind_param($update_img_stmt, "si", $target_path, $new_id);
+                            mysqli_stmt_execute($update_img_stmt);
+                            mysqli_stmt_close($update_img_stmt);
+                        }
+                    }
+                    $_SESSION['success_msg'] = "New book added successfully with ID #" . $new_id . "!";
+                } else {
+                    $_SESSION['errors'][] = "Database insert error: " . mysqli_error($conn);
+                }
+                mysqli_stmt_close($stmt);
             }
+        } else {
+            $_SESSION['errors'] = $post_errors;
         }
+
     } elseif ($action === "delete_book") {
-        $book_id = $_POST['book_id'] ?? '';
-        foreach ($_SESSION['inventory_db'] as $key => $book) {
-            if ($book['id'] === $book_id) {
-                unset($_SESSION['inventory_db'][$key]);
-                $_SESSION['inventory_db'] = array_values($_SESSION['inventory_db']);
-                $success_msg = "Book " . htmlspecialchars($book_id) . " deleted successfully!";
-                break;
+        $book_id = filter_input(INPUT_POST, 'book_id', FILTER_VALIDATE_INT);
+        if ($book_id) {
+            
+            $img_stmt = mysqli_prepare($conn, "SELECT Image FROM books WHERE BookID = ?");
+            mysqli_stmt_bind_param($img_stmt, "i", $book_id);
+            mysqli_stmt_execute($img_stmt);
+            $res = mysqli_stmt_get_result($img_stmt);
+            if ($row = mysqli_fetch_assoc($res)) {
+                if (!empty($row['Image']) && file_exists($row['Image'])) {
+                    @unlink($row['Image']);
+                }
             }
+            mysqli_stmt_close($img_stmt);
+
+            $stmt = mysqli_prepare($conn, "DELETE FROM books WHERE BookID = ?");
+            mysqli_stmt_bind_param($stmt, "i", $book_id);
+            
+            if (mysqli_stmt_execute($stmt)) {
+                $_SESSION['success_msg'] = "Book #" . $book_id . " deleted successfully!";
+            } else {
+                $_SESSION['errors'][] = "Failed to delete book from database.";
+            }
+            mysqli_stmt_close($stmt);
         }
     }
+
+    header("Location: admin_inventory.php");
+    exit();
 }
 
-$inventory = $_SESSION['inventory_db'];
+$inventory = [];
+$query = mysqli_query($conn, "SELECT BookID, Title, Stock, Price, Image FROM books ORDER BY BookID DESC");
+if ($query) {
+    while ($row = mysqli_fetch_assoc($query)) {
+        $inventory[] = $row;
+    }
+}
 ?>
 <!DOCTYPE html>
+<html lang="en">
 <head>
-	<title>Manage Books & Inventory - BookShop</title>
-	<style>
-		html, body {
-			height: 100%;
-			margin: 0;
-			padding: 0;
-			background-color: lightblue;
-		}
-		#header_table {
-			width: 100%;
-			height: 50px;
-			background-color: blue;
-			color: white;
-			padding: 0 20px;
-		}
-		#main_layout {
-			width: 100%;
-			height: calc(100vh - 50px);
-			border-collapse: collapse;
-		}
-		#sidebar {
-			width: 220px;
-			vertical-align: top;
-			background-color: #4c63ee;
-			padding-top: 10px;
-		}
-		#sidebar a {
-			display: block;
-			color: white;
-			text-decoration: none;
-			font-weight: bold;
-			padding: 12px 20px;
-		}
-		#active_menu {
-			background-color: grey;
-		}
-		#content {
-			vertical-align: top;
-			padding: 20px;
-		}
-		fieldset {
-			border-color: blue;
-			background-color: white;
-			margin-bottom: 20px;
-			padding: 15px;
-		}
-		.logout-btn {
-			background-color: grey;
-			color: white;
-			padding: 10px 20px;
-			border: none;
-			cursor: pointer;
-			font-weight: bold;
-			width: 100%;
-		}
-		.blue-btn {
-			background-color: blue;
-			color: white;
-			border: none;
-			padding: 6px 12px;
-			cursor: pointer;
-			font-weight: bold;
-		}
-		.action-btn {
-			background-color: blue;
-			color: white;
-			border: none;
-			padding: 4px 8px;
-			margin: 0 2px;
-			cursor: pointer;
-			font-weight: bold;
-			font-size: 11px;
-		}
-		.delete-btn {
-            background-color: #d9534f;
-        }
-		#inventory_table {
-			width: 100%;
-			border-collapse: collapse;
-		}
-		#inventory_table th {
-			background-color: #5d83e1;
-			color: white;
-			padding: 12px;
-		}
-		#inventory_table td {
-			background-color: #5911eb;
-			color: white;
-			padding: 12px;
-			text-align: center;
-			font-weight: bold;
-		}
-		.alert-error {
-            background-color: #ffcccc;
-            color: #990000;
-            border: 1px solid #990000;
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-        }
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-        }
-        .js-error {
-            color: red;
-            font-size: 12px;
-            display: block;
-            margin-top: 2px;
-        }
-
-        
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-        .modal-content {
-            background-color: white;
-            margin: 10% auto;
-            padding: 20px;
-            width: 320px;
-            border-radius: 5px;
-        }
-        .modal-content label {
-            font-size: 13px;
-            color: #333;
-            display: block;
-            margin-top: 10px;
-        }
-        .modal-content input {
-            width: 100%;
-            padding: 8px;
-            margin-top: 4px;
-            box-sizing: border-box;
-        }
-	</style>
+    <meta charset="UTF-8">
+    <title>Manage Books & Inventory - BookShop</title>
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; background-color: lightblue; font-family: sans-serif; }
+        #header_table { width: 100%; height: 50px; background-color: blue; color: white; padding: 0 20px; }
+        #main_layout { width: 100%; height: calc(100vh - 50px); border-collapse: collapse; }
+        #sidebar { width: 220px; vertical-align: top; background-color: #4c63ee; padding-top: 10px; }
+        #sidebar a { display: block; color: white; text-decoration: none; font-weight: bold; padding: 12px 20px; }
+        #active_menu { background-color: grey; }
+        #content { vertical-align: top; padding: 20px; }
+        fieldset { border-color: blue; background-color: white; margin-bottom: 20px; padding: 15px; }
+        .logout-btn { background-color: grey; color: white; padding: 10px 20px; border: none; cursor: pointer; font-weight: bold; width: 100%; }
+        .blue-btn { background-color: blue; color: white; border: none; padding: 6px 12px; cursor: pointer; font-weight: bold; }
+        .action-btn { background-color: blue; color: white; border: none; padding: 4px 8px; margin: 0 2px; cursor: pointer; font-weight: bold; font-size: 11px; }
+        .delete-btn { background-color: #d9534f; }
+        #inventory_table { width: 100%; border-collapse: collapse; }
+        #inventory_table th { background-color: #5d83e1; color: white; padding: 12px; }
+        #inventory_table td { background-color: #5911eb; color: white; padding: 12px; text-align: center; font-weight: bold; }
+        .alert-error { background-color: #ffcccc; color: #990000; border: 1px solid #990000; padding: 10px; margin-bottom: 15px; border-radius: 4px; }
+        .alert-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 10px; margin-bottom: 15px; border-radius: 4px; }
+        .js-error { color: red; font-size: 12px; display: block; margin-top: 2px; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: white; margin: 8% auto; padding: 20px; width: 340px; border-radius: 5px; }
+        .modal-content label { font-size: 13px; color: #333; display: block; margin-top: 10px; }
+        .modal-content input { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
+    </style>
 </head>
 <body>
 
-	<table id="header_table">
-		<tr>
-			<td>
-				<img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
-				<b>BOOKSHOP MANAGEMENT</b>
-			</td>
-			<td align="right"><b>ADMIN PANEL</b></td>
-		</tr>
-	</table>
+    <table id="header_table">
+        <tr>
+            <td>
+                <img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" style="vertical-align: middle;">
+                <b>BOOKSHOP MANAGEMENT</b>
+            </td>
+            <td align="right"><b>ADMIN PANEL</b></td>
+        </tr>
+    </table>
 
-	<table id="main_layout">
-		<tr>
-			<td id="sidebar">
-				<a href="admin_dashboard.php">DASHBOARD</a>
-				<a href="admin_inventory.php" id="active_menu">BOOKS & INVENTORY</a>
-				<a href="admin_users.php">USERS</a>
-				<a href="profile_settings.php">SETTINGS</a>
-				
-				<br><br>
-				<div style="padding: 0 20px;">
-					<a href="login.php" style="padding: 0;"><button type="button" class="logout-btn">LOG OUT</button></a>
-				</div>
-			</td>
-			<td id="content">
-				<fieldset>
-					<legend>Manage Books & Inventory</legend>
-					<?php if (!empty($errors)): ?>
+    <table id="main_layout">
+        <tr>
+            <td id="sidebar">
+                <a href="admin_dashboard.php">DASHBOARD</a>
+                <a href="admin_inventory.php" id="active_menu">BOOKS & INVENTORY</a>
+                <a href="admin_users.php">USERS</a>
+                <a href="profile_settings.php">SETTINGS</a>
+                <br><br>
+                <div style="padding: 0 20px;">
+                    <a href="login.php" style="padding: 0;"><button type="button" class="logout-btn">LOG OUT</button></a>
+                </div>
+            </td>
+            <td id="content">
+                <fieldset>
+                    <legend>Manage Books & Inventory</legend>
+                    
+                    <?php if (!empty($errors)): ?>
                         <div class="alert-error">
                             <ul style="margin: 0; padding-left: 20px;">
                                 <?php foreach ($errors as $error): ?>
-                                    <li><?php echo htmlspecialchars($error); ?></li>
+                                    <li><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></li>
                                 <?php endforeach; ?>
                             </ul>
                         </div>
                     <?php endif; ?>
 
-                   
                     <?php if (!empty($success_msg)): ?>
                         <div class="alert-success">
-                            <b><?php echo htmlspecialchars($success_msg); ?></b>
+                            <b><?php echo htmlspecialchars($success_msg, ENT_QUOTES, 'UTF-8'); ?></b>
                         </div>
                     <?php endif; ?>
-					
-					<table width="100%" style="margin-bottom: 15px;">
-						<tr>
-							<td>
-								<input type="text" id="searchInput" onkeyup="filterTable()" placeholder="SEARCH BOOKS" style="padding: 5px; width: 220px;">
+                   
+                    <table width="100%" style="margin-bottom: 15px;">
+                        <tr>
+                            <td>
+                                <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="SEARCH BOOKS" style="padding: 5px; width: 220px;">
                                 <button type="button" class="blue-btn" onclick="filterTable()">SEARCH</button>
-							</td>
-							<td align="right">
-								<button type="button" class="blue-btn" onclick="openAddModal()">ADD NEW BOOK</button>
-							</td>
-						</tr>
-					</table>
+                            </td>
+                            <td align="right">
+                                <button type="button" class="blue-btn" onclick="openAddModal()">ADD NEW BOOK</button>
+                            </td>
+                        </tr>
+                    </table>
 
-					<table id="inventory_table" border="1">
-						<thead>
+                    <table id="inventory_table" border="1">
+                        <thead>
                             <tr>
                                 <th>ID</th>
                                 <th>DETAILS</th>
@@ -301,33 +258,48 @@ $inventory = $_SESSION['inventory_db'];
                                 <th>ACTION</th>
                             </tr>
                         </thead>
-						<tbody id="inventoryTableBody">
-                            <?php foreach ($inventory as $book): ?>
+                        <tbody id="inventoryTableBody">
+                            <?php if (!empty($inventory)): ?>
+                                <?php foreach ($inventory as $book): ?>
+                                    <tr>
+                                        <td>#BK<?php echo htmlspecialchars($book['BookID'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td><?php echo htmlspecialchars($book['Title'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td><?php echo htmlspecialchars(str_pad($book['Stock'], 2, '0', STR_PAD_LEFT), ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td>BDT <?php echo htmlspecialchars(number_format($book['Price'], 2), ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td>
+                                            <button type="button" 
+                                                    class="action-btn" 
+                                                    data-id="<?php echo htmlspecialchars($book['BookID'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-title="<?php echo htmlspecialchars($book['Title'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-stock="<?php echo htmlspecialchars($book['Stock'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-price="<?php echo htmlspecialchars($book['Price'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-image="<?php echo htmlspecialchars($book['Image'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                                                    onclick="handleEditClick(this)">EDIT</button>
+                                            
+                                            <form method="POST" action="admin_inventory.php" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this book?');">
+                                                <input type="hidden" name="action" value="delete_book">
+                                                <input type="hidden" name="book_id" value="<?php echo htmlspecialchars($book['BookID'], ENT_QUOTES, 'UTF-8'); ?>">
+                                                <button type="submit" class="action-btn delete-btn">DELETE</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($book['id']); ?></td>
-                                    <td><?php echo htmlspecialchars($book['title']); ?></td>
-                                    <td><?php echo htmlspecialchars(str_pad($book['stock'], 2, '0', STR_PAD_LEFT)); ?></td>
-                                    <td>BDT <?php echo htmlspecialchars(number_format($book['price'], 2)); ?></td>
-                                    <td>
-                                        <button type="button" class="action-btn" onclick="openEditModal('<?php echo $book['id']; ?>', '<?php echo addslashes($book['title']); ?>', <?php echo $book['stock']; ?>, <?php echo $book['price']; ?>)">EDIT</button>
-                                        <form method="POST" action="admin_inventory.php" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this book?');">
-                                            <input type="hidden" name="action" value="delete_book">
-                                            <input type="hidden" name="book_id" value="<?php echo htmlspecialchars($book['id']); ?>">
-                                            <button type="submit" class="action-btn delete-btn">DELETE</button>
-                                        </form>
-                                    </td>
+                                    <td colspan="5">No books found in inventory.</td>
                                 </tr>
-                            <?php endforeach; ?>
+                            <?php endif; ?>
                         </tbody>
-					</table>
-				</fieldset>
-			</td>
-		</tr>
-	</table>
-<div id="bookModal" class="modal">
+                    </table>
+                </fieldset>
+            </td>
+        </tr>
+    </table>
+
+    <div id="bookModal" class="modal">
         <div class="modal-content">
             <h3 id="modalTitle" style="margin-top:0;">Add New Book</h3>
-            <form id="bookForm" action="admin_inventory.php" method="POST" onsubmit="return validateBookForm();" novalidate>
+            <form id="bookForm" action="admin_inventory.php" method="POST" enctype="multipart/form-data" onsubmit="return validateBookForm();" novalidate>
                 <input type="hidden" name="action" value="save_book">
                 <input type="hidden" name="book_id" id="bookId" value="">
 
@@ -343,6 +315,15 @@ $inventory = $_SESSION['inventory_db'];
                 <input type="number" name="price" id="bookPrice" step="0.01" min="0">
                 <span id="err_bookPrice" class="js-error"></span>
 
+                <label for="bookImage">Book Cover Image</label>
+                <input type="file" name="book_image" id="bookImage" accept="image/jpeg,image/png,image/webp">
+                <span id="err_bookImage" class="js-error"></span>
+
+                <div id="imagePreviewContainer" style="margin-top: 10px; display: none;">
+                    <small>Current Image:</small><br>
+                    <img id="currentBookImg" src="" alt="Cover" style="max-width: 80px; max-height: 80px; border: 1px solid #ccc; margin-top: 4px;">
+                </div>
+
                 <br><br>
                 <button type="submit" class="blue-btn" style="width: 100%;">Save Book</button>
                 <button type="button" class="logout-btn" style="width: 100%; margin-top: 5px;" onclick="closeModal()">Cancel</button>
@@ -351,7 +332,6 @@ $inventory = $_SESSION['inventory_db'];
     </div>
 
     <script>
-   
     function filterTable() {
         const input = document.getElementById('searchInput').value.toUpperCase();
         const tbody = document.getElementById('inventoryTableBody');
@@ -359,44 +339,57 @@ $inventory = $_SESSION['inventory_db'];
 
         for (let i = 0; i < rows.length; i++) {
             const rowText = rows[i].textContent || rows[i].innerText;
-            if (rowText.toUpperCase().indexOf(input) > -1) {
-                rows[i].style.display = "";
-            } else {
-                rows[i].style.display = "none";
-            }
+            rows[i].style.display = rowText.toUpperCase().indexOf(input) > -1 ? "" : "none";
         }
     }
 
-    
     function openAddModal() {
         document.getElementById('modalTitle').innerText = "Add New Book";
         document.getElementById('bookId').value = "";
         document.getElementById('bookTitle').value = "";
         document.getElementById('bookStock').value = "";
         document.getElementById('bookPrice').value = "";
+        document.getElementById('imagePreviewContainer').style.display = 'none';
         clearJsErrors();
         document.getElementById('bookModal').style.display = 'block';
     }
 
-    function openEditModal(id, title, stock, price) {
-        document.getElementById('modalTitle').innerText = "Edit Book (" + id + ")";
+    function handleEditClick(btn) {
+        const id = btn.getAttribute('data-id');
+        const title = btn.getAttribute('data-title');
+        const stock = btn.getAttribute('data-stock');
+        const price = btn.getAttribute('data-price');
+        const imagePath = btn.getAttribute('data-image');
+
+        document.getElementById('modalTitle').innerText = "Edit Book (#" + id + ")";
         document.getElementById('bookId').value = id;
         document.getElementById('bookTitle').value = title;
         document.getElementById('bookStock').value = stock;
         document.getElementById('bookPrice').value = price;
+
+        const previewContainer = document.getElementById('imagePreviewContainer');
+        const previewImg = document.getElementById('currentBookImg');
+
+        if (imagePath && imagePath.trim() !== '') {
+            previewImg.src = imagePath;
+            previewContainer.style.display = 'block';
+        } else {
+            previewContainer.style.display = 'none';
+        }
+
         clearJsErrors();
         document.getElementById('bookModal').style.display = 'block';
     }
 
     function closeModal() {
         document.getElementById('bookModal').style.display = 'none';
+        document.getElementById('imagePreviewContainer').style.display = 'none';
         clearJsErrors();
     }
 
     function clearJsErrors() {
         document.querySelectorAll('.js-error').forEach(el => el.innerText = '');
     }
-
 
     function validateBookForm() {
         clearJsErrors();
@@ -406,7 +399,6 @@ $inventory = $_SESSION['inventory_db'];
         const stock = document.getElementById('bookStock').value.trim();
         const price = document.getElementById('bookPrice').value.trim();
 
-        
         if (title === "") {
             document.getElementById('err_bookTitle').innerText = "Book title is required.";
             isValid = false;
@@ -415,16 +407,14 @@ $inventory = $_SESSION['inventory_db'];
             isValid = false;
         }
 
-        
         if (stock === "") {
             document.getElementById('err_bookStock').innerText = "Stock quantity is required.";
             isValid = false;
-        } else if (isNaN(stock) || parseInt(stock) < 0 || !Number.isInteger(Number(stock))) {
+        } else if (isNaN(stock) || parseInt(stock, 10) < 0) {
             document.getElementById('err_bookStock').innerText = "Stock must be a non-negative integer.";
             isValid = false;
         }
 
-        
         if (price === "") {
             document.getElementById('err_bookPrice').innerText = "Price is required.";
             isValid = false;
@@ -436,7 +426,6 @@ $inventory = $_SESSION['inventory_db'];
         return isValid;
     }
 
-    
     <?php if (!empty($errors)): ?>
         document.getElementById('bookModal').style.display = 'block';
     <?php endif; ?>

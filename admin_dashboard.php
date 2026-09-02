@@ -1,8 +1,9 @@
 <?php
 session_start();
+require_once 'dbconnection.php';
 
 
-if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+if (!isset($_SESSION['user_role']) || strtoupper($_SESSION['user_role']) !== 'ADMIN') {
    
     header("Location: login.php");
     exit();
@@ -15,6 +16,34 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     header("Location: login.php");
     exit();
 }
+
+$total_books=0;
+$total_customers=0;
+$total_sales=0;
+
+$books_query =mysqli_query($conn,"SELECT COUNT(*) AS total FROM books");
+if($books_query){
+	$total_books=mysqli_fetch_assoc($books_query)['total'] ?? 0;
+}
+
+$customers_query = mysqli_query($conn,"SELECT COUNT(*) AS total FROM users WHERE UPPER(Role) = 'CUSTOMER'");
+if($customers_query){
+	$total_customers =mysqli_fetch_assoc($customers_query)['total'] ?? 0;
+}
+
+$sales_query = mysqli_query($conn,"SELECT SUM(TotalAmount) AS total FROM orders");
+if($sales_query){
+	$total_sales=mysqli_fetch_assoc($sales_query)['total']?? 0;
+}
+
+$recent_orders =[];
+$orders_query = mysqli_query($conn, "SELECT OrderID, TotalAmount, OrderType FROM orders ORDER BY OrderDate DESC LIMIT 5");
+if($orders_query){
+	while($row = mysqli_fetch_assoc($orders_query)){
+		$recent_orders[] =$row;
+	}
+}
+
 ?>
 
 
@@ -129,9 +158,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
 					<legend>System Overview</legend>
 					<table id="stats_table" border="1">
 						<tr>
-							<td>TOTAL BOOKS<br><br><h2>1,245</h2></td>
-							<td>TOTAL CUSTOMERS<br><br><h2>565</h2></td>
-							<td>TOTAL SALES<br><br><h2>BDT 12,000</h2></td>
+							<td>TOTAL BOOKS<br><br><h2><?php echo number_format($total_books); ?></h2></td>
+							<td>TOTAL CUSTOMERS<br><br><h2><?php echo number_format($total_customers); ?></h2></td>
+							<td>TOTAL SALES<br><br><h2><?php echo number_format($total_sales); ?></h2></td>
 						</tr>
 					</table>
 				</fieldset>
@@ -144,26 +173,19 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
 							<th>AMOUNT</th>
 							<th>TYPE</th>
 						</tr>
-						<tr>
-							<td>#O101</td>
-							<td>BDT 420</td>
-							<td>IN STORE</td>
-						</tr>
-						<tr>
-							<td>#O102</td>
-							<td>BDT 620</td>
-							<td>ONLINE</td>
-						</tr>
-						<tr>
-							<td>#O103</td>
-							<td>BDT 220</td>
-							<td>IN STORE</td>
-						</tr>
-						<tr>
-							<td>#O104</td>
-							<td>BDT 1000</td>
-							<td>ONLINE</td>
-						</tr>
+					<?php if(!empty($recent_orders)): ?>
+					<?php foreach ($recent_orders as $order): ?>
+					<tr>
+						<td>#O<?php echo htmlspecialchars($order['OrderID']); ?></td>
+						<td>BDT <?php echo number_format($order['TotalAmount'],2); ?></td>
+						<td><?php echo htmlspecialchars(strtoupper($order['OrderType'] ?? 'ONLINE')); ?></td>
+					</tr>
+				<?php endforeach; ?>
+			<?php else: ?>
+				<tr>
+					<td colspan="3">No recent transactions found. </td>
+				</tr>
+			<?php endif; ?>
 					</table>
 				</fieldset>
 			</td>

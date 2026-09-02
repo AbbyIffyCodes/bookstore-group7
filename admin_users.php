@@ -1,8 +1,9 @@
 <?php
 session_start();
+require_once 'dbconnection.php';
 
 
-if (!isset($_SESSION['user_role']) || strtolower($_SESSION['user_role']) !== 'admin') {
+if (!isset($_SESSION['user_role']) || strtoupper($_SESSION['user_role']) !== 'ADMIN') {
     
     header("Location: login.php");
     exit();
@@ -11,15 +12,16 @@ if (!isset($_SESSION['user_role']) || strtolower($_SESSION['user_role']) !== 'ad
 $errors = [];
 $success_msg = "";
 
-
-if (!isset($_SESSION['users_db'])) {
-    $_SESSION['users_db'] = [
-        ["id" => "T001", "name" => "ABTAHEE", "role" => "ADMIN", "email" => "tahmid11@wow.com", "status" => "ACTIVE"],
-        ["id" => "T002", "name" => "MAYESHA", "role" => "ADMIN", "email" => "mysha11@wow.com", "status" => "ACTIVE"],
-        ["id" => "T003", "name" => "TAHMID", "role" => "CUSTOMER", "email" => "tah11@wow.com", "status" => "ACTIVE"],
-        ["id" => "T004", "name" => "FATEMA", "role" => "EMPLOYEE", "email" => "fahh11@wow.com", "status" => "ACTIVE"],
-    ];
+if (isset($_SESSION['success_msg'])) {
+    $success_msg = $_SESSION['success_msg'];
+    unset($_SESSION['success_msg']);
 }
+
+if (isset($_SESSION['errors'])) {
+    $errors = $_SESSION['errors'];
+    unset($_SESSION['errors']);
+}
+
 
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -28,6 +30,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if ($action === "add_user") {
         $name = trim($_POST['name'] ?? '');
         $email = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
         $role = trim($_POST['role'] ?? '');
 
         if (empty($name)) {
@@ -41,6 +44,22 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         } elseif (!preg_match("/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/", $email)) {
             $errors[] = "Invalid email format.";
         }
+        else {
+           
+            $checkStmt = $conn->prepare("SELECT UserID FROM users WHERE Email = ?");
+            $checkStmt->bind_param("s", $email);
+            $checkStmt->execute();
+            $checkStmt->store_result();
+            if ($checkStmt->num_rows > 0) {
+                $errors[] = "Email is already registered.";
+            }
+            $checkStmt->close();
+        }
+        if (empty($password)) {
+            $errors[] = "Password is required.";
+        } elseif (strlen($password) < 6) {
+            $errors[] = "Password must be at least 6 characters long.";
+        }
 
         $allowed_roles = ["ADMIN", "EMPLOYEE", "CUSTOMER"];
         if (empty($role) || !in_array($role, $allowed_roles)) {
@@ -49,31 +68,63 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         
         if (empty($errors)) {
-            $next_id = "T" . str_pad(count($_SESSION['users_db']) + 1, 3, "0", STR_PAD_LEFT);
-            $_SESSION['users_db'][] = [
-                "id" => $next_id,
-                "name" => strtoupper(htmlspecialchars($name)),
-                "role" => $role,
-                "email" => htmlspecialchars($email),
-                "status" => "ACTIVE"
-            ];
-            $success_msg = "User successfully added!";
+            
+            $countRes = $conn->query("SELECT COUNT(*) AS total FROM users");
+            $totalCount = $countRes->fetch_assoc()['total'] + 1;
+            $custom_id = "T" . str_pad($totalCount, 3, "0", STR_PAD_LEFT);
+
+            
+            $password_hash = password_hash($password, PASSWORD_BCRYPT);
+            $status = "Active";
+
+            $stmt = $conn->prepare("INSERT INTO users (CustomUserID, FullName, Email, PasswordHash, Role, Status) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("ssssss", $custom_id, $name, $email, $password_hash, $role, $status);
+
+if ($stmt->execute()) {
+                $_SESSION['success_msg'] = "User successfully added!";
+                header("Location: admin_users.php");
+                exit();
+            } else {
+                $errors[] = "Database error: " . $conn->error;
+            }
+            $stmt->close();
         }
     } elseif ($action === "toggle_status") {
-        $user_id = $_POST['user_id'] ?? '';
-        foreach ($_SESSION['users_db'] as &$usr) {
-            if ($usr['id'] === $user_id) {
-                $usr['status'] = ($usr['status'] === "ACTIVE") ? "INACTIVE" : "ACTIVE";
-                $success_msg = "Status updated for user " . htmlspecialchars($user_id);
-                break;
-            }
+        header('Content-Type: application/json');
+
+        $userId = $_POST['user_id'] ?? null;
+        $status = $_POST['status'] ?? null;
+
+        if ($userId && in_array(strtolower($status), ['active', 'inactive'])) {
+            
+            $formattedStatus = ucfirst(strtolower($status));
+
+            $stmt = $conn->prepare("UPDATE users SET Status = ? WHERE CustomUserID = ?");
+            $stmt->bind_param("ss", $formattedStatus, $userId);
+            $success = $stmt->execute();
+            $stmt->close();
+
+            echo json_encode(['success' => $success]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
         }
+        exit;
     }
 }
 
-$users = $_SESSION['users_db'];
+
+$users = [];
+$result = $conn->query("SELECT CustomUserID AS id, FullName AS name, Role AS role, Email AS email, Status AS status FROM users ORDER BY UserID DESC");
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $users[] = $row;
+    }
+}
 ?>
 <!DOCTYPE html>
+
+<html>
+
 <head>
 	<title>Manage Users & Roles - BookShop</title>
 	<style>
@@ -188,8 +239,6 @@ $users = $_SESSION['users_db'];
             display: block;
             margin-top: 2px;
         }
-
-        /* Modal Styles */
         .modal {
             display: none;
             position: fixed;
@@ -297,18 +346,14 @@ $users = $_SESSION['users_db'];
                                     <td><?php echo htmlspecialchars($user['name']); ?></td>
                                     <td><?php echo htmlspecialchars($user['role']); ?></td>
                                     <td><?php echo htmlspecialchars($user['email']); ?></td>
-                                    <td class="<?php echo ($user['status'] === 'INACTIVE') ? 'status-inactive' : ''; ?>">
-                                        <?php echo htmlspecialchars($user['status']); ?>
+                                    <td id="status-badge-<?php echo htmlspecialchars($user['id']); ?>" class="<?php echo (strtoupper($user['status']) === 'INACTIVE') ? 'status-inactive' : ''; ?>">
+                                   <?php echo htmlspecialchars(strtoupper($user['status'])); ?>
                                     </td>
                                     <td>
-                                        <form method="POST" action="admin_users.php" style="display:inline;">
-                                            <input type="hidden" name="action" value="toggle_status">
-                                            <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user['id']); ?>">
-                                            <button type="submit" class="action-btn">
-                                                <?php echo ($user['status'] === 'ACTIVE') ? 'Deactivate' : 'Activate'; ?>
-                                            </button>
-                                        </form>
-                                    </td>
+                                <button type="button" class="action-btn" onclick="toggleUserStatus('<?php echo htmlspecialchars($user['id']); ?>', '<?php echo strtolower($user['status']); ?>', this)">
+                                <?php echo (strtoupper($user['status']) === 'ACTIVE') ? 'Deactivate' : 'Activate'; ?>
+                              </button>
+                                </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -331,6 +376,10 @@ $users = $_SESSION['users_db'];
                 <label>Email</label>
                 <input type="email" name="email" id="userEmail">
                 <span id="err_userEmail" class="js-error"></span>
+
+                <label>Password</label>
+                <input type="password" name="password" id="userPassword">
+                <span id="err_userPassword" class="js-error"></span>
 
                 <label>Role</label>
                 <select name="role" id="userRole">
@@ -387,6 +436,7 @@ $users = $_SESSION['users_db'];
         const name = document.getElementById('userName').value.trim();
         const email = document.getElementById('userEmail').value.trim();
         const role = document.getElementById('userRole').value;
+        const password = document.getElementById('userPassword').value;
 
         
         if (name === "") {
@@ -405,6 +455,16 @@ $users = $_SESSION['users_db'];
         } 
 
         
+
+         if (password === "") {
+         document.getElementById('err_userPassword').innerText = "Password is required.";
+          isValid = false;
+        } else if (password.length < 6) {
+         document.getElementById('err_userPassword').innerText = "Password must be at least 6 characters.";
+          isValid = false;
+        }
+
+        
         if (role === "") {
             document.getElementById('err_userRole').innerText = "Role selection is required.";
             isValid = false;
@@ -412,6 +472,44 @@ $users = $_SESSION['users_db'];
 
         return isValid;
     }
+
+    function toggleUserStatus(userId, currentStatus, buttonElement) {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+
+    const formData = new FormData();
+    formData.append('action', 'toggle_status');
+    formData.append('user_id', userId);
+    formData.append('status', newStatus);
+
+    fetch('admin_users.php', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            
+            const statusBadge = document.getElementById(`status-badge-${userId}`);
+            statusBadge.textContent = newStatus.toUpperCase();
+            
+            if (newStatus === 'inactive') {
+                statusBadge.classList.add('status-inactive');
+            } else {
+                statusBadge.classList.remove('status-inactive');
+            }
+
+            
+            buttonElement.textContent = newStatus === 'active' ? 'Deactivate' : 'Activate';
+            buttonElement.setAttribute('onclick', `toggleUserStatus('${userId}', '${newStatus}', this)`);
+        } else {
+            alert('Failed to update user status.');
+        }
+    })
+    .catch(error => console.error('Error toggling status:', error));
+}
     </script>
 </body>
 </html>

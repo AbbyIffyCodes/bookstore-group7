@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once 'dbconnection.php';
 $errors = [];
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -20,23 +21,73 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     
     if (empty($errors)) {
-        if ($email === "admin@bookshop.com" && $password === "admin123") {
-        	$_SESSION['user_role']='admin';
-            header("Location: admin_dashboard.php");
-            exit();
-        } elseif ($email === "employee@bookshop.com" && $password === "employee123") {
-        	$_SESSION['user_role']='employee';
-            header("Location: employee_dashboard.php");
-             exit();
-           
-        } elseif ($email === "customer@bookshop.com" && $password === "customer123") {
-        	$_SESSION['user_role']='customer';
-        	header("Location: customer_dashboard.php");
-        	 exit();
+        
+$sql = "SELECT UserID, Email, PasswordHash, Role FROM users WHERE Email = ?"; 
+
+
+$stmt = mysqli_prepare($conn, $sql); 
+
+
+if ($stmt) { 
+    
+    mysqli_stmt_bind_param($stmt, "s", $email); 
+    
+    
+    mysqli_stmt_execute($stmt); 
+    
+    
+    $result = mysqli_stmt_get_result($stmt); 
+
+    
+    if ($user = mysqli_fetch_assoc($result)) { 
+        
+        if ($password === $user['PasswordHash']) { 
+            
+            $role = strtolower($user['Role']); 
+            
+            
+            $_SESSION['user_id'] = $user['UserID']; 
+            
+            
+            $_SESSION['user_role'] = $role; 
+
+            
+            if ($role === 'admin') { 
+                header("Location: admin_dashboard.php"); 
+                exit(); 
+                
+            
+            } elseif ($role === 'employee') { 
+                header("Location: employee_dashboard.php"); 
+                exit(); 
+                
+            
+            } elseif ($role === 'customer') { 
+                header("Location: customer_dashboard.php"); 
+                exit(); 
+                
+            
+            } else { 
+                $errors[] = "Unauthorized access role."; 
+            }
+            
+        
+        } else { 
+            $errors[] = "Invalid email or password."; 
         }
-            else {
-            $errors[] = "Invalid email or password.";
-        }
+        
+    
+    } else { 
+        $errors[] = "Invalid email or password."; 
+    }
+    
+    
+    mysqli_stmt_close($stmt); 
+    
+
+} else { 
+    $errors[] = "Database query failed."; 
+}
     }
 }
 ?>

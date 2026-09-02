@@ -1,5 +1,6 @@
 <?php
-
+session_start();
+require_once 'dbconnection.php';
 
 $errors = [];
 $success_msg = "";
@@ -7,7 +8,6 @@ $success_msg = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $EmailAdd = trim($_POST['EmailAdd'] ?? '');
-    $CurPass  = $_POST['CurPass'] ?? '';
     $Pass     = $_POST['Pass'] ?? '';
     $CPass    = $_POST['CPass'] ?? '';
 
@@ -19,9 +19,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     
-    if (empty($CurPass)) {
-        $errors[] = "Current password is required.";
-    }
+    
 
    
     if (empty($Pass)) {
@@ -39,8 +37,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
  
     if (empty($errors)) {
+    	$selectSql = "SELECT UserID FROM users WHERE Email = ?";
+        $selectStmt = mysqli_prepare($conn, $selectSql);
+
+        if ($selectStmt) {
+            mysqli_stmt_bind_param($selectStmt, "s", $EmailAdd);
+            mysqli_stmt_execute($selectStmt);
+            $result = mysqli_stmt_get_result($selectStmt);
+
+            if ($user = mysqli_fetch_assoc($result)) {
+                
+                $updateSql = "UPDATE users SET PasswordHash = ? WHERE UserID = ?";
+                $updateStmt = mysqli_prepare($conn, $updateSql);
+
+                if ($updateStmt) {
+                    mysqli_stmt_bind_param($updateStmt, "si", $Pass, $user['UserID']);
+                    if (mysqli_stmt_execute($updateStmt)) {
+                        $success_msg = "Password updated successfully!";
+                    } else {
+                        $errors[] = "Failed to update password. Please try again.";
+                    }
+                    mysqli_stmt_close($updateStmt);
+                } else {
+                    $errors[] = "Database update statement failed.";
+                }
+            } else {
+                $errors[] = "No account found with that email address.";
+            }
+            mysqli_stmt_close($selectStmt);
+        } else {
+            $errors[] = "Database query failed.";
+        }
         
-        $success_msg = "Password updated successfully!";
+        
     }
 }
 ?>
@@ -189,9 +218,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 								<input type="email" name="EmailAdd" id="EmailAdd" value="<?php echo htmlspecialchars($_POST['EmailAdd'] ?? ''); ?>" ><br>
 								<span id="err_EmailAdd" class="js-error"></span>
 
-								<label>Current Password</label><br>
-								<input type="password" name="CurPass" id="CurPass" ><br>
-								<span id="err_CurPass" class="js-error"></span>
+								
 
 								<label>New Password</label><br>
 								<input type="password" name="Pass" id="Pass" ><br><span id="err_Pass" class="js-error"></span>
@@ -222,7 +249,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         document.querySelectorAll('.js-error').forEach(el => el.innerText = '');
 
         const email = document.getElementById('EmailAdd').value.trim();
-        const curPass = document.getElementById('CurPass').value;
+        
         const pass = document.getElementById('Pass').value;
         const cPass = document.getElementById('CPass').value;
 
@@ -234,10 +261,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } 
 
        
-        if (curPass === "") {
-            document.getElementById('err_CurPass').innerText = "Current password is required.";
-            isValid = false;
-        }
+        
 
         
         if (pass === "") {

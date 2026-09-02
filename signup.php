@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once 'dbconnection.php';
 $errors = [];
 
 
@@ -63,9 +64,64 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if(empty($errors)){
         
-        header("Location: login.php?registered=success");
-        exit();
+        
+$checkSql = "SELECT UserID FROM users WHERE Email = ?"; 
+$checkStmt = mysqli_prepare($conn, $checkSql); 
+
+if ($checkStmt) {
+    mysqli_stmt_bind_param($checkStmt, "s", $email); 
+    mysqli_stmt_execute($checkStmt); 
+    mysqli_stmt_store_result($checkStmt); 
+
+    if (mysqli_stmt_num_rows($checkStmt) > 0) { 
+        $emailErr = "Email address is already registered."; 
+        $errors[] = "Email address is already registered."; 
+    } else {
+        
+        $role = 'CUSTOMER';
+
+        $emailParts = explode('@', $email); 
+        if (isset($emailParts[0])) {
+            $usernameParts = explode('_', $emailParts[0]); 
+            $lastPart = strtoupper(end($usernameParts)); 
+
+            
+            if ($lastPart === 'ADMIN') {
+                $role = 'ADMIN';
+            } elseif ($lastPart === 'EMPLOYEE') {
+                $role = 'EMPLOYEE';
+            } elseif ($lastPart === 'CUSTOMER') {
+                $role = 'CUSTOMER';
+            }
+        }
+
+        
+        $insertSql = "INSERT INTO users (FullName, Email, Phone, PasswordHash, Role) VALUES (?, ?, ?, ?, ?)";
+        $insertStmt = mysqli_prepare($conn, $insertSql);
+
+        if ($insertStmt) {
+            
+            mysqli_stmt_bind_param($insertStmt, "sssss", $fname, $email, $phone, $password, $role);
+
+            if (mysqli_stmt_execute($insertStmt)) { 
+                header("Location: login.php?registered=success"); 
+                exit(); 
+            } else {
+                $errors[] = "Failed to register user. Please try again."; 
+            }
+            mysqli_stmt_close($insertStmt); 
+        } else {
+            $errors[] = "Database insert query failed."; 
+        }
     }
+    mysqli_stmt_close($checkStmt); 
+} else {
+    $errors[] = "Database validation query failed."; 
+}
+        
+    }
+
+    
 }
 ?>
 
