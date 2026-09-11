@@ -1,166 +1,17 @@
 <?php
-session_start();
-require_once 'dbconnection.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if (!isset($_SESSION['user_role']) || strtoupper($_SESSION['user_role']) !== 'ADMIN') {
     header("Location: login.php");
     exit();
 }
 
-
+$inventory = $_SESSION['inventory'] ?? [];
 $errors = $_SESSION['errors'] ?? [];
 $success_msg = $_SESSION['success_msg'] ?? "";
 unset($_SESSION['errors'], $_SESSION['success_msg']);
-
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $action = $_POST['action'] ?? '';
-    $post_errors = [];
-
-    if ($action === "save_book") {
-        $book_id = filter_input(INPUT_POST, 'book_id', FILTER_VALIDATE_INT);
-        $title = trim($_POST['title'] ?? '');
-        $stock = trim($_POST['stock'] ?? '');
-        $price = trim($_POST['price'] ?? '');
-
-        if ($title === '') { 
-            $post_errors[] = "Book title is required."; 
-        }
-        if ($stock === '' || !ctype_digit($stock) || (int)$stock < 0) { 
-            $post_errors[] = "Stock must be a non-negative integer."; 
-        }
-        if ($price === '' || !is_numeric($price) || (float)$price <= 0) { 
-            $post_errors[] = "Price must be a positive number."; 
-        }
-
-
-        $has_file = isset($_FILES['book_image']) && $_FILES['book_image']['error'] === UPLOAD_ERR_OK;
-        $allowed_mime_types = ['image/jpeg', 'image/png', 'image/webp'];
-        $allowed_exts = ['jpg', 'jpeg', 'png', 'webp'];
-
-        if ($has_file) {
-            $file_tmp = $_FILES['book_image']['tmp_name'];
-            $file_ext = strtolower(pathinfo($_FILES['book_image']['name'], PATHINFO_EXTENSION));
-            
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mime_type = finfo_file($finfo, $file_tmp);
-            finfo_close($finfo);
-
-            if (!in_array($file_ext, $allowed_exts, true) || !in_array($mime_type, $allowed_mime_types, true)) {
-                $post_errors[] = "Invalid image file type. Only JPG, PNG, and WEBP images are allowed.";
-            }
-        }
-
-        if (empty($post_errors)) {
-            $formatted_title = mb_strtoupper($title, 'UTF-8');
-            $stock_val = (int)$stock;
-            $price_val = (float)$price;
-            $upload_dir = "images/";
-
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
-            }
-
-            if (!empty($book_id)) {
-             
-                if ($has_file) {
-                    $new_filename = "TXP" . $book_id . "_" . time() . "." . $file_ext;
-                    $target_path = $upload_dir . $new_filename;
-
-                    if (move_uploaded_file($_FILES['book_image']['tmp_name'], $target_path)) {
-                    
-                        $old_img_stmt = mysqli_prepare($conn, "SELECT Image FROM books WHERE BookID = ?");
-                        mysqli_stmt_bind_param($old_img_stmt, "i", $book_id);
-                        mysqli_stmt_execute($old_img_stmt);
-                        $res = mysqli_stmt_get_result($old_img_stmt);
-                        if ($row = mysqli_fetch_assoc($res)) {
-                            if (!empty($row['Image']) && file_exists($row['Image'])) {
-                                @unlink($row['Image']);
-                            }
-                        }
-                        mysqli_stmt_close($old_img_stmt);
-
-                        $stmt = mysqli_prepare($conn, "UPDATE books SET Title = ?, Stock = ?, Price = ?, Image = ? WHERE BookID = ?");
-                        mysqli_stmt_bind_param($stmt, "sidsi", $formatted_title, $stock_val, $price_val, $target_path, $book_id);
-                    }
-                } else {
-                    $stmt = mysqli_prepare($conn, "UPDATE books SET Title = ?, Stock = ?, Price = ? WHERE BookID = ?");
-                    mysqli_stmt_bind_param($stmt, "sidi", $formatted_title, $stock_val, $price_val, $book_id);
-                }
-
-                if (isset($stmt) && mysqli_stmt_execute($stmt)) {
-                    $_SESSION['success_msg'] = "Book #" . $book_id . " updated successfully!";
-                } else {
-                    $_SESSION['errors'][] = "Database update error: " . mysqli_error($conn);
-                }
-                if (isset($stmt)) mysqli_stmt_close($stmt);
-
-            } else {
-                
-                $stmt = mysqli_prepare($conn, "INSERT INTO books (Title, Stock, Price) VALUES (?, ?, ?)");
-                mysqli_stmt_bind_param($stmt, "sid", $formatted_title, $stock_val, $price_val);
-
-                if (mysqli_stmt_execute($stmt)) {
-                    $new_id = mysqli_insert_id($conn);
-
-                    if ($has_file) {
-                        $new_filename = "TXP" . $new_id . "_" . time() . "." . $file_ext;
-                        $target_path = $upload_dir . $new_filename;
-
-                        if (move_uploaded_file($_FILES['book_image']['tmp_name'], $target_path)) {
-                            $update_img_stmt = mysqli_prepare($conn, "UPDATE books SET Image = ? WHERE BookID = ?");
-                            mysqli_stmt_bind_param($update_img_stmt, "si", $target_path, $new_id);
-                            mysqli_stmt_execute($update_img_stmt);
-                            mysqli_stmt_close($update_img_stmt);
-                        }
-                    }
-                    $_SESSION['success_msg'] = "New book added successfully with ID #" . $new_id . "!";
-                } else {
-                    $_SESSION['errors'][] = "Database insert error: " . mysqli_error($conn);
-                }
-                mysqli_stmt_close($stmt);
-            }
-        } else {
-            $_SESSION['errors'] = $post_errors;
-        }
-
-    } elseif ($action === "delete_book") {
-        $book_id = filter_input(INPUT_POST, 'book_id', FILTER_VALIDATE_INT);
-        if ($book_id) {
-            
-            $img_stmt = mysqli_prepare($conn, "SELECT Image FROM books WHERE BookID = ?");
-            mysqli_stmt_bind_param($img_stmt, "i", $book_id);
-            mysqli_stmt_execute($img_stmt);
-            $res = mysqli_stmt_get_result($img_stmt);
-            if ($row = mysqli_fetch_assoc($res)) {
-                if (!empty($row['Image']) && file_exists($row['Image'])) {
-                    @unlink($row['Image']);
-                }
-            }
-            mysqli_stmt_close($img_stmt);
-
-            $stmt = mysqli_prepare($conn, "DELETE FROM books WHERE BookID = ?");
-            mysqli_stmt_bind_param($stmt, "i", $book_id);
-            
-            if (mysqli_stmt_execute($stmt)) {
-                $_SESSION['success_msg'] = "Book #" . $book_id . " deleted successfully!";
-            } else {
-                $_SESSION['errors'][] = "Failed to delete book from database.";
-            }
-            mysqli_stmt_close($stmt);
-        }
-    }
-
-    header("Location: admin_inventory.php");
-    exit();
-}
-
-$inventory = [];
-$query = mysqli_query($conn, "SELECT BookID, Title, Stock, Price, Image FROM books ORDER BY BookID DESC");
-if ($query) {
-    while ($row = mysqli_fetch_assoc($query)) {
-        $inventory[] = $row;
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -168,7 +19,7 @@ if ($query) {
     <meta charset="UTF-8">
     <title>Manage Books & Inventory - BookShop</title>
     <style>
-        html, body { height: 100%; margin: 0; padding: 0; background-color: lightblue; font-family: sans-serif; }
+        html, body { height: 100%; margin: 0; padding: 0; background-color: lightblue;}
         #header_table { width: 100%; height: 50px; background-color: blue; color: white; padding: 0 20px; }
         #main_layout { width: 100%; height: calc(100vh - 50px); border-collapse: collapse; }
         #sidebar { width: 220px; vertical-align: top; background-color: #4c63ee; padding-top: 10px; }
@@ -197,7 +48,7 @@ if ($query) {
     <table id="header_table">
         <tr>
             <td>
-                <img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" style="vertical-align: middle;">
+                <img src="../public/images/ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" style="vertical-align: middle;">
                 <b>BOOKSHOP MANAGEMENT</b>
             </td>
             <td align="right"><b>ADMIN PANEL</b></td>
@@ -207,13 +58,13 @@ if ($query) {
     <table id="main_layout">
         <tr>
             <td id="sidebar">
-                <a href="admin_dashboard.php">DASHBOARD</a>
-                <a href="admin_inventory.php" id="active_menu">BOOKS & INVENTORY</a>
-                <a href="admin_users.php">USERS</a>
-                <a href="profile_settings.php">SETTINGS</a>
+                <a href="../controllers/admin_dashboard_controller.php">DASHBOARD</a>
+                <a href="../controllers/admin_inventory_controller.php" id="active_menu">BOOKS & INVENTORY</a>
+                <a href="../controllers/admin_users_controller.php">USERS</a>
+                <a href="../controllers/profile_settings_controller.php">SETTINGS</a>
                 <br><br>
                 <div style="padding: 0 20px;">
-                    <a href="login.php" style="padding: 0;"><button type="button" class="logout-btn">LOG OUT</button></a>
+                    <a href="../controllers/admin_dashboard_controller.php?action=logout" style="padding: 0;"><button type="button" class="logout-btn">LOG OUT</button></a>
                 </div>
             </td>
             <td id="content">
@@ -253,6 +104,7 @@ if ($query) {
                             <tr>
                                 <th>ID</th>
                                 <th>DETAILS</th>
+                                <th>CATEGORY</th>
                                 <th>STOCK</th>
                                 <th>PRICE</th>
                                 <th>ACTION</th>
@@ -262,21 +114,24 @@ if ($query) {
                             <?php if (!empty($inventory)): ?>
                                 <?php foreach ($inventory as $book): ?>
                                     <tr>
-                                        <td>#BK<?php echo htmlspecialchars($book['BookID'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                       <td><?php echo htmlspecialchars(!empty($book['CustomBookID']) ? $book['CustomBookID'] : ('#BK' . $book['BookID']), ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?php echo htmlspecialchars($book['Title'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td><?php echo htmlspecialchars($book['Category'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?php echo htmlspecialchars(str_pad($book['Stock'], 2, '0', STR_PAD_LEFT), ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td>BDT <?php echo htmlspecialchars(number_format($book['Price'], 2), ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td>
                                             <button type="button" 
                                                     class="action-btn" 
                                                     data-id="<?php echo htmlspecialchars($book['BookID'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-customid="<?php echo htmlspecialchars($book['CustomBookID'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                                                     data-title="<?php echo htmlspecialchars($book['Title'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-category="<?php echo htmlspecialchars($book['Category'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                                                     data-stock="<?php echo htmlspecialchars($book['Stock'], ENT_QUOTES, 'UTF-8'); ?>"
                                                     data-price="<?php echo htmlspecialchars($book['Price'], ENT_QUOTES, 'UTF-8'); ?>"
                                                     data-image="<?php echo htmlspecialchars($book['Image'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                                                     onclick="handleEditClick(this)">EDIT</button>
                                             
-                                            <form method="POST" action="admin_inventory.php" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this book?');">
+                                            <form method="POST" action="../controllers/admin_inventory_controller.php" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this book?');">
                                                 <input type="hidden" name="action" value="delete_book">
                                                 <input type="hidden" name="book_id" value="<?php echo htmlspecialchars($book['BookID'], ENT_QUOTES, 'UTF-8'); ?>">
                                                 <button type="submit" class="action-btn delete-btn">DELETE</button>
@@ -286,7 +141,7 @@ if ($query) {
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="5">No books found in inventory.</td>
+                                    <td colspan="6">No books found in inventory.</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>
@@ -299,13 +154,25 @@ if ($query) {
     <div id="bookModal" class="modal">
         <div class="modal-content">
             <h3 id="modalTitle" style="margin-top:0;">Add New Book</h3>
-            <form id="bookForm" action="admin_inventory.php" method="POST" enctype="multipart/form-data" onsubmit="return validateBookForm();" novalidate>
+            <form id="bookForm" action="../controllers/admin_inventory_controller.php" method="POST" enctype="multipart/form-data" onsubmit="return validateBookForm();" novalidate>
                 <input type="hidden" name="action" value="save_book">
                 <input type="hidden" name="book_id" id="bookId" value="">
 
                 <label for="bookTitle">Book Title</label>
                 <input type="text" name="title" id="bookTitle">
                 <span id="err_bookTitle" class="js-error"></span>
+
+                <label for="bookCategory">Category</label>
+                <select name="category" id="bookCategory">
+                <option value="">-- Select Category --</option>
+                <option value="Fiction">Fiction</option>
+                <option value="Self-Help">Self-Help</option>
+                <option value="Business">Business</option>
+                <option value="Programming">Programming</option>
+                <option value="Science">Science</option>
+                <option value="History">History</option>
+                </select>
+                <span id="err_bookCategory" class="js-error"></span>
 
                 <label for="bookStock">Stock Quantity</label>
                 <input type="number" name="stock" id="bookStock" min="0">
@@ -347,6 +214,7 @@ if ($query) {
         document.getElementById('modalTitle').innerText = "Add New Book";
         document.getElementById('bookId').value = "";
         document.getElementById('bookTitle').value = "";
+        document.getElementById('bookCategory').value = "";
         document.getElementById('bookStock').value = "";
         document.getElementById('bookPrice').value = "";
         document.getElementById('imagePreviewContainer').style.display = 'none';
@@ -356,7 +224,9 @@ if ($query) {
 
     function handleEditClick(btn) {
         const id = btn.getAttribute('data-id');
+        const customId = btn.getAttribute('data-customid');
         const title = btn.getAttribute('data-title');
+        const category = btn.getAttribute('data-category');
         const stock = btn.getAttribute('data-stock');
         const price = btn.getAttribute('data-price');
         const imagePath = btn.getAttribute('data-image');
@@ -364,6 +234,7 @@ if ($query) {
         document.getElementById('modalTitle').innerText = "Edit Book (#" + id + ")";
         document.getElementById('bookId').value = id;
         document.getElementById('bookTitle').value = title;
+        document.getElementById('bookCategory').value = category;
         document.getElementById('bookStock').value = stock;
         document.getElementById('bookPrice').value = price;
 
@@ -396,6 +267,7 @@ if ($query) {
         let isValid = true;
 
         const title = document.getElementById('bookTitle').value.trim();
+        const category = document.getElementById('bookCategory').value;
         const stock = document.getElementById('bookStock').value.trim();
         const price = document.getElementById('bookPrice').value.trim();
 
@@ -404,6 +276,11 @@ if ($query) {
             isValid = false;
         } else if (title.length < 2) {
             document.getElementById('err_bookTitle').innerText = "Title must be at least 2 characters.";
+            isValid = false;
+        }
+
+        if (category === "") {
+            document.getElementById('err_bookCategory').innerText = "Please select a category.";
             isValid = false;
         }
 

@@ -1,136 +1,26 @@
 <?php
-session_start();
-require_once 'dbconnection.php';
-$errors = [];
-
-
-$fname = '';
-$email = '';
-$phone = '';
-
-$fnameErr = '';
-$emailErr = '';
-$phoneErr = '';
-$passErr  = '';
-$cpassErr = '';
-
-
-
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    
-    $fname    = trim($_POST['FName'] ?? '');
-    $email    = trim($_POST['EmailAdd'] ?? '');
-    $phone    = trim($_POST['PHnumber'] ?? '');
-    $password = $_POST['Pass'] ?? '';
-    $cpassword = $_POST['CPass'] ?? '';
-
-    
-
-    
-    if (empty($fname)) {
-    	$fnameErr = "Full Name is required.";
-        $errors[] = "Full Name is required.";
-    }
-
-    
-    if (empty($email)) {
-    	$emailErr = "Email is required.";
-        $errors[] = "Email is required.";
-    } elseif (!preg_match("/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/", $email)) {
-    	$emailErr = "Invalid email format.";
-        $errors[] = "Invalid email format.";
-    }
-
-    
-    if (empty($phone)) {
-    	$phoneErr = "Phone number is required.";
-        $errors[] = "Phone number is required.";
-    } elseif (!preg_match("/^[0-9]{7,15}$/", $phone)) {
-    	$phoneErr = "Phone number must contain between 7 and 15 digits.";
-        $errors[] = "Phone number must contain between 7 and 15 digits.";
-    }
-
-    
-    if (empty($password)) {
-    	$passErr  = "Password is required.";
-        $errors[] = "Password is required.";
-    }
-
-    
-    if ($password !== $cpassword) {
-    	$cpassErr = "Password and Confirm Password do not match.";
-        $errors[] = "Password and Confirm Password do not match.";
-    }
-
-    if(empty($errors)){
-        
-        
-$checkSql = "SELECT UserID FROM users WHERE Email = ?"; 
-$checkStmt = mysqli_prepare($conn, $checkSql); 
-
-if ($checkStmt) {
-    mysqli_stmt_bind_param($checkStmt, "s", $email); 
-    mysqli_stmt_execute($checkStmt); 
-    mysqli_stmt_store_result($checkStmt); 
-
-    if (mysqli_stmt_num_rows($checkStmt) > 0) { 
-        $emailErr = "Email address is already registered."; 
-        $errors[] = "Email address is already registered."; 
-    } else {
-        
-        $role = 'CUSTOMER';
-
-        $emailParts = explode('@', $email); 
-        if (isset($emailParts[0])) {
-            $usernameParts = explode('_', $emailParts[0]); 
-            $lastPart = strtoupper(end($usernameParts)); 
-
-            
-            if ($lastPart === 'ADMIN') {
-                $role = 'ADMIN';
-            } elseif ($lastPart === 'EMPLOYEE') {
-                $role = 'EMPLOYEE';
-            } elseif ($lastPart === 'CUSTOMER') {
-                $role = 'CUSTOMER';
-            }
-        }
-
-        
-        $insertSql = "INSERT INTO users (FullName, Email, Phone, PasswordHash, Role) VALUES (?, ?, ?, ?, ?)";
-        $insertStmt = mysqli_prepare($conn, $insertSql);
-
-        if ($insertStmt) {
-            
-            mysqli_stmt_bind_param($insertStmt, "sssss", $fname, $email, $phone, $password, $role);
-
-            if (mysqli_stmt_execute($insertStmt)) { 
-                header("Location: login.php?registered=success"); 
-                exit(); 
-            } else {
-                $errors[] = "Failed to register user. Please try again."; 
-            }
-            mysqli_stmt_close($insertStmt); 
-        } else {
-            $errors[] = "Database insert query failed."; 
-        }
-    }
-    mysqli_stmt_close($checkStmt); 
-} else {
-    $errors[] = "Database validation query failed."; 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
-        
-    }
 
-    
-}
+$errors = $_SESSION['errors'] ?? [];
+$field_errors = $_SESSION['field_errors'] ?? [];
+$old_input = $_SESSION['old_input'] ?? [];
+
+unset($_SESSION['errors'], $_SESSION['field_errors'], $_SESSION['old_input']);
+
+$fname = $old_input['fname'] ?? '';
+$email = $old_input['email'] ?? '';
+$phone = $old_input['phone'] ?? '';
+
+$fnameErr = $field_errors['fnameErr'] ?? '';
+$emailErr = $field_errors['emailErr'] ?? '';
+$phoneErr = $field_errors['phoneErr'] ?? '';
+$passErr  = $field_errors['passErr'] ?? '';
+$cpassErr = $field_errors['cpassErr'] ?? '';
 ?>
-
-
-
-
-
-
 <!DOCTYPE html>
+<html>
 <head>
 	<title>Sign Up - BookShop</title>
 	<style>
@@ -140,7 +30,6 @@ if ($checkStmt) {
 			margin: 0;
 			padding: 0;
 			background-color: #ffffff;
-			
 		}
 		#page_wrapper {
 			width: 100%;
@@ -172,7 +61,7 @@ if ($checkStmt) {
 			background-color: #e6e1e1;
 			border: none;
 			margin-top: 5px;
-			margin-bottom: 12px;
+			margin-bottom: 5px;
 			padding: 0 10px;
 			box-sizing: border-box;
 			font-size: 14px;
@@ -216,7 +105,7 @@ if ($checkStmt) {
 	</style>
 </head>
 <body>
-<?php if (!empty($errors)): ?>
+    <?php if (!empty($errors)): ?>
         <div style="color: red; border: 1px solid red; padding: 10px; margin: 15px; background-color: #ffe6e6;">
             <h3 style="margin-top: 0;">Please fix the following errors:</h3>
             <ul style="margin-bottom: 0;">
@@ -231,31 +120,31 @@ if ($checkStmt) {
 		<tr>
 			<td align="center" valign="middle">
 
-				<form action="signup.php" method="POST" onsubmit="return validate(this); " novalidate>
+				<form action="../controllers/signup_controller.php" method="POST" onsubmit="return validate(this);" novalidate>
 					<table id="signup_table">
 						<tr>
 							<td id="form_box">
 								<h2>Sign Up</h2>
 
 								<label>Full Name</label><br>
-								<input type="text" name="FName" id="FName" value="<?php echo htmlspecialchars($fname); ?>" ><br>
-								<span id="FNameErrMsg" class="error-text"></span>
+								<input type="text" name="FName" id="FName" value="<?php echo htmlspecialchars($fname); ?>"><br>
+								<span id="FNameErrMsg" class="error-text"><?php echo htmlspecialchars($fnameErr); ?></span>
 
 								<label>Email</label><br>
 								<input type="email" name="EmailAdd" id="EmailAdd" value="<?php echo htmlspecialchars($email); ?>"><br>
-								<span id="EmailAddErrMsg" class="error-text"><?php echo $emailErr; ?></span>
+								<span id="EmailAddErrMsg" class="error-text"><?php echo htmlspecialchars($emailErr); ?></span>
 
 								<label>Phone</label><br>
 								<input type="tel" name="PHnumber" id="PHnumber" value="<?php echo htmlspecialchars($phone); ?>"><br>
-								<span id="PHnumberErrMsg" class="error-text"><?php echo $phoneErr; ?></span>
+								<span id="PHnumberErrMsg" class="error-text"><?php echo htmlspecialchars($phoneErr); ?></span>
 
 								<label>Password</label><br>
-								<input type="password" name="Pass" id="Pass" ><br>
-								<span id="PassErrMsg" class="error-text"></span>
+								<input type="password" name="Pass" id="Pass"><br>
+								<span id="PassErrMsg" class="error-text"><?php echo htmlspecialchars($passErr); ?></span>
 
 								<label>Confirm Password</label><br>
-								<input type="password" name="CPass" id="CPass" ><br>
-								<span id="CPassErrMsg" class="error-text"></span>
+								<input type="password" name="CPass" id="CPass"><br>
+								<span id="CPassErrMsg" class="error-text"><?php echo htmlspecialchars($cpassErr); ?></span>
 
 								<button type="submit">Register</button>
 
@@ -270,8 +159,8 @@ if ($checkStmt) {
 			</td>
 		</tr>
 	</table>
+
 	<script>
-        
         function validate(p) {
             const fname = p.FName.value.trim();
             const email = p.EmailAdd.value.trim();
@@ -285,7 +174,6 @@ if ($checkStmt) {
             const PassErrMsg = document.getElementById("PassErrMsg");
             const CPassErrMsg = document.getElementById("CPassErrMsg");
 
-            
             FNameErrMsg.innerText = "";
             EmailAddErrMsg.innerText = "";
             PHnumberErrMsg.innerText = "";
@@ -325,6 +213,5 @@ if ($checkStmt) {
             return flag;
         }
     </script>
-
 </body>
 </html>

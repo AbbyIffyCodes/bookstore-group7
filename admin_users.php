@@ -1,130 +1,20 @@
 <?php
-session_start();
-require_once 'dbconnection.php';
-
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if (!isset($_SESSION['user_role']) || strtoupper($_SESSION['user_role']) !== 'ADMIN') {
-    
     header("Location: login.php");
     exit();
 }
 
-$errors = [];
-$success_msg = "";
-
-if (isset($_SESSION['success_msg'])) {
-    $success_msg = $_SESSION['success_msg'];
-    unset($_SESSION['success_msg']);
-}
-
-if (isset($_SESSION['errors'])) {
-    $errors = $_SESSION['errors'];
-    unset($_SESSION['errors']);
-}
-
-
-
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $action = $_POST['action'] ?? '';
-
-    if ($action === "add_user") {
-        $name = trim($_POST['name'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $role = trim($_POST['role'] ?? '');
-
-        if (empty($name)) {
-            $errors[] = "User name is required.";
-        } elseif (strlen($name) < 2) {
-            $errors[] = "Name must be at least 2 characters.";
-        }
-
-        if (empty($email)) {
-            $errors[] = "Email address is required.";
-        } elseif (!preg_match("/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/", $email)) {
-            $errors[] = "Invalid email format.";
-        }
-        else {
-           
-            $checkStmt = $conn->prepare("SELECT UserID FROM users WHERE Email = ?");
-            $checkStmt->bind_param("s", $email);
-            $checkStmt->execute();
-            $checkStmt->store_result();
-            if ($checkStmt->num_rows > 0) {
-                $errors[] = "Email is already registered.";
-            }
-            $checkStmt->close();
-        }
-        if (empty($password)) {
-            $errors[] = "Password is required.";
-        } elseif (strlen($password) < 6) {
-            $errors[] = "Password must be at least 6 characters long.";
-        }
-
-        $allowed_roles = ["ADMIN", "EMPLOYEE", "CUSTOMER"];
-        if (empty($role) || !in_array($role, $allowed_roles)) {
-            $errors[] = "Please select a valid role.";
-        }
-
-        
-        if (empty($errors)) {
-            
-            $countRes = $conn->query("SELECT COUNT(*) AS total FROM users");
-            $totalCount = $countRes->fetch_assoc()['total'] + 1;
-            $custom_id = "T" . str_pad($totalCount, 3, "0", STR_PAD_LEFT);
-
-            
-            $password_hash = password_hash($password, PASSWORD_BCRYPT);
-            $status = "Active";
-
-            $stmt = $conn->prepare("INSERT INTO users (CustomUserID, FullName, Email, PasswordHash, Role, Status) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("ssssss", $custom_id, $name, $email, $password_hash, $role, $status);
-
-if ($stmt->execute()) {
-                $_SESSION['success_msg'] = "User successfully added!";
-                header("Location: admin_users.php");
-                exit();
-            } else {
-                $errors[] = "Database error: " . $conn->error;
-            }
-            $stmt->close();
-        }
-    } elseif ($action === "toggle_status") {
-        header('Content-Type: application/json');
-
-        $userId = $_POST['user_id'] ?? null;
-        $status = $_POST['status'] ?? null;
-
-        if ($userId && in_array(strtolower($status), ['active', 'inactive'])) {
-            
-            $formattedStatus = ucfirst(strtolower($status));
-
-            $stmt = $conn->prepare("UPDATE users SET Status = ? WHERE CustomUserID = ?");
-            $stmt->bind_param("ss", $formattedStatus, $userId);
-            $success = $stmt->execute();
-            $stmt->close();
-
-            echo json_encode(['success' => $success]);
-        } else {
-            echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
-        }
-        exit;
-    }
-}
-
-
-$users = [];
-$result = $conn->query("SELECT CustomUserID AS id, FullName AS name, Role AS role, Email AS email, Status AS status FROM users ORDER BY UserID DESC");
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $users[] = $row;
-    }
-}
+$users = $_SESSION['users'] ?? [];
+$errors = $_SESSION['errors'] ?? [];
+$success_msg = $_SESSION['success_msg'] ?? "";
+unset($_SESSION['errors'], $_SESSION['success_msg']);
 ?>
 <!DOCTYPE html>
-
 <html>
-
 <head>
 	<title>Manage Users & Roles - BookShop</title>
 	<style>
@@ -275,7 +165,7 @@ if ($result) {
 	<table id="header_table">
 		<tr>
 			<td>
-				<img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
+				<img src="../public/images/ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
 				<b>BOOKSHOP MANAGEMENT</b>
 			</td>
 			<td align="right"><b>ADMIN PANEL</b></td>
@@ -285,14 +175,14 @@ if ($result) {
 	<table id="main_layout">
 		<tr>
 			<td id="sidebar">
-				<a href="admin_dashboard.php">DASHBOARD</a>
-				<a href="admin_inventory.php">BOOKS & INVENTORY</a>
-				<a href="admin_users.php" id="active_menu">USERS</a>
-				<a href="profile_settings.php">SETTINGS</a>
+				<a href="../controllers/admin_dashboard_controller.php">DASHBOARD</a>
+				<a href="../controllers/admin_inventory_controller.php">BOOKS & INVENTORY</a>
+				<a href="../controllers/admin_users_controller.php" id="active_menu">USERS</a>
+				<a href="../controllers/profile_settings_controller.php">SETTINGS</a>
 				
 				<br><br>
 				<div style="padding: 0 20px;">
-					<a href="login.php" style="padding: 0;"><button type="button" class="logout-btn">LOG OUT</button></a>
+					<a href="../controllers/admin_dashboard_controller.php?action=logout" style="padding: 0;"><button type="button" class="logout-btn">LOG OUT</button></a>
 				</div>
 			</td>
 			<td id="content">
@@ -309,7 +199,6 @@ if ($result) {
                         </div>
                     <?php endif; ?>
 
-                    
                     <?php if (!empty($success_msg)): ?>
                         <div class="alert-success">
                             <b><?php echo htmlspecialchars($success_msg); ?></b>
@@ -342,21 +231,24 @@ if ($result) {
 					<tbody id="userTableBody">
 						<?php foreach ($users as $user): ?>
 						<tr>
-                                    <td><?php echo htmlspecialchars($user['id']); ?></td>
-                                    <td><?php echo htmlspecialchars($user['name']); ?></td>
-                                    <td><?php echo htmlspecialchars($user['role']); ?></td>
-                                    <td><?php echo htmlspecialchars($user['email']); ?></td>
-                                    <td id="status-badge-<?php echo htmlspecialchars($user['id']); ?>" class="<?php echo (strtoupper($user['status']) === 'INACTIVE') ? 'status-inactive' : ''; ?>">
-                                   <?php echo htmlspecialchars(strtoupper($user['status'])); ?>
-                                    </td>
-                                    <td>
-                                <button type="button" class="action-btn" onclick="toggleUserStatus('<?php echo htmlspecialchars($user['id']); ?>', '<?php echo strtolower($user['status']); ?>', this)">
-                                <?php echo (strtoupper($user['status']) === 'ACTIVE') ? 'Deactivate' : 'Activate'; ?>
-                              </button>
-                                </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
+                            <td><?php echo htmlspecialchars($user['id']); ?></td>
+                            <td><?php echo htmlspecialchars($user['name']); ?></td>
+                            <td><?php echo htmlspecialchars($user['role']); ?></td>
+                            <td><?php echo htmlspecialchars($user['email']); ?></td>
+                            <td id="status-badge-<?php echo htmlspecialchars($user['id']); ?>" class="<?php echo (strtoupper($user['status']) === 'INACTIVE') ? 'status-inactive' : ''; ?>">
+                           <?php echo htmlspecialchars(strtoupper($user['status'])); ?>
+                            </td>
+                            <td>
+                                <button type="button" 
+                                id="btn-toggle-<?php echo htmlspecialchars($user['id']); ?>"
+                                class="action-btn" 
+                                onclick="toggleUserStatus('<?php echo htmlspecialchars($user['id']); ?>', '<?php echo (strtoupper($user['status']) === 'ACTIVE') ? 'inactive' : 'active'; ?>')">
+                            <?php echo (strtoupper($user['status']) === 'ACTIVE') ? 'Deactivate' : 'Activate'; ?>
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
 					</table>
 				</fieldset>
 			</td>
@@ -366,7 +258,7 @@ if ($result) {
     <div id="addUserModal" class="modal">
         <div class="modal-content">
             <h3 style="margin-top:0;">Add New User</h3>
-            <form id="addUserForm" action="admin_users.php" method="POST" onsubmit="return validateAddUserForm();" novalidate>
+            <form id="addUserForm" action="../controllers/admin_users_controller.php" method="POST" onsubmit="return validateAddUserForm();" novalidate>
                 <input type="hidden" name="action" value="add_user">
 
                 <label>Name</label>
@@ -398,7 +290,6 @@ if ($result) {
     </div>
 
     <script>
-    
     function filterTable() {
         const input = document.getElementById('searchInput').value.toUpperCase();
         const tbody = document.getElementById('userTableBody');
@@ -414,7 +305,6 @@ if ($result) {
         }
     }
 
-    
     function openModal() {
         document.getElementById('addUserModal').style.display = 'block';
     }
@@ -428,7 +318,6 @@ if ($result) {
         document.querySelectorAll('.js-error').forEach(el => el.innerText = '');
     }
 
-   
     function validateAddUserForm() {
         clearJsErrors();
         let isValid = true;
@@ -438,7 +327,6 @@ if ($result) {
         const role = document.getElementById('userRole').value;
         const password = document.getElementById('userPassword').value;
 
-        
         if (name === "") {
             document.getElementById('err_userName').innerText = "Name is required.";
             isValid = false;
@@ -447,24 +335,19 @@ if ($result) {
             isValid = false;
         }
 
-        
-        
         if (email === "") {
             document.getElementById('err_userEmail').innerText = "Email is required.";
             isValid = false;
         } 
 
-        
-
-         if (password === "") {
-         document.getElementById('err_userPassword').innerText = "Password is required.";
-          isValid = false;
+        if (password === "") {
+            document.getElementById('err_userPassword').innerText = "Password is required.";
+            isValid = false;
         } else if (password.length < 6) {
-         document.getElementById('err_userPassword').innerText = "Password must be at least 6 characters.";
-          isValid = false;
+            document.getElementById('err_userPassword').innerText = "Password must be at least 6 characters.";
+            isValid = false;
         }
 
-        
         if (role === "") {
             document.getElementById('err_userRole').innerText = "Role selection is required.";
             isValid = false;
@@ -473,43 +356,36 @@ if ($result) {
         return isValid;
     }
 
-    function toggleUserStatus(userId, currentStatus, buttonElement) {
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    function toggleUserStatus(userId, targetStatus) {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                
+                if (response.success) {
+                    const badge = document.getElementById("status-badge-" + userId);
+                    badge.innerText = response.new_status;
 
-    const formData = new FormData();
-    formData.append('action', 'toggle_status');
-    formData.append('user_id', userId);
-    formData.append('status', newStatus);
+                    if (response.new_status === "INACTIVE") {
+                        badge.classList.add("status-inactive");
+                    } else {
+                        badge.classList.remove("status-inactive");
+                    }
 
-    fetch('admin_users.php', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            
-            const statusBadge = document.getElementById(`status-badge-${userId}`);
-            statusBadge.textContent = newStatus.toUpperCase();
-            
-            if (newStatus === 'inactive') {
-                statusBadge.classList.add('status-inactive');
-            } else {
-                statusBadge.classList.remove('status-inactive');
+                    const btn = document.getElementById("btn-toggle-" + userId);
+                    btn.innerText = response.next_button_text;
+                    btn.setAttribute("onclick", "toggleUserStatus('" + userId + "', '" + response.next_status + "')");
+                } else {
+                    alert("Error: " + response.message);
+                }
             }
+        };
 
-            
-            buttonElement.textContent = newStatus === 'active' ? 'Deactivate' : 'Activate';
-            buttonElement.setAttribute('onclick', `toggleUserStatus('${userId}', '${newStatus}', this)`);
-        } else {
-            alert('Failed to update user status.');
-        }
-    })
-    .catch(error => console.error('Error toggling status:', error));
-}
+        xhr.open("POST", "../controllers/admin_users_controller.php");
+        xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        xhr.send("action=toggle_status&user_id=" + encodeURIComponent(userId) + "&status=" + encodeURIComponent(targetStatus));
+    }
     </script>
 </body>
 </html>

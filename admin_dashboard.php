@@ -1,53 +1,20 @@
 <?php
-session_start();
-require_once 'dbconnection.php';
-
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if (!isset($_SESSION['user_role']) || strtoupper($_SESSION['user_role']) !== 'ADMIN') {
-   
     header("Location: login.php");
     exit();
 }
 
-
-if (isset($_GET['action']) && $_GET['action'] === 'logout') {
-    session_unset();
-    session_destroy();
-    header("Location: login.php");
-    exit();
-}
-
-$total_books=0;
-$total_customers=0;
-$total_sales=0;
-
-$books_query =mysqli_query($conn,"SELECT COUNT(*) AS total FROM books");
-if($books_query){
-	$total_books=mysqli_fetch_assoc($books_query)['total'] ?? 0;
-}
-
-$customers_query = mysqli_query($conn,"SELECT COUNT(*) AS total FROM users WHERE UPPER(Role) = 'CUSTOMER'");
-if($customers_query){
-	$total_customers =mysqli_fetch_assoc($customers_query)['total'] ?? 0;
-}
-
-$sales_query = mysqli_query($conn,"SELECT SUM(TotalAmount) AS total FROM orders");
-if($sales_query){
-	$total_sales=mysqli_fetch_assoc($sales_query)['total']?? 0;
-}
-
-$recent_orders =[];
-$orders_query = mysqli_query($conn, "SELECT OrderID, TotalAmount, OrderType FROM orders ORDER BY OrderDate DESC LIMIT 5");
-if($orders_query){
-	while($row = mysqli_fetch_assoc($orders_query)){
-		$recent_orders[] =$row;
-	}
-}
-
+$total_books = $_SESSION['total_books'] ?? 0;
+$total_customers = $_SESSION['total_customers'] ?? 0;
+$total_sales = $_SESSION['total_sales'] ?? 0;
+$recent_orders = $_SESSION['recent_orders'] ?? [];
 ?>
-
-
 <!DOCTYPE html>
+<html>
 <head>
 	<title>Admin Dashboard - BookShop</title>
 	<style>
@@ -133,7 +100,7 @@ if($orders_query){
 	<table id="header_table">
 		<tr>
 			<td>
-				<img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
+				<img src="../public/images/ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
 				<b>BOOKSHOP MANAGEMENT</b>
 			</td>
 			<td align="right"><b>ADMIN DASHBOARD</b></td>
@@ -143,10 +110,10 @@ if($orders_query){
 	<table id="main_layout">
 		<tr>
 			<td id="sidebar">
-				<a href="admin_dashboard.php" id="active_menu">DASHBOARD</a>
-				<a href="admin_inventory.php">BOOKS & INVENTORY</a>
-				<a href="admin_users.php">USERS</a>
-				<a href="profile_settings.php">SETTINGS</a>
+				<a href="../controllers/admin_dashboard_controller.php" id="active_menu">DASHBOARD</a>
+				<a href="../controllers/admin_inventory_controller.php">BOOKS & INVENTORY</a>
+				<a href="../controllers/admin_users_controller.php">USERS</a>
+				<a href="../controllers/profile_settings_controller.php">SETTINGS</a>
 				
 				<br><br>
 				<div style="padding: 0 20px;">
@@ -192,14 +159,12 @@ if($orders_query){
 		</tr>
 	</table>
    <script>
-       
         function confirmLogout() {
             if (confirm("Are you sure you want to log out?")) {
-                window.location.href = "admin_dashboard.php?action=logout";
+                window.location.href = "../controllers/admin_dashboard_controller.php?action=logout";
             }
         }
     </script>
-
 
 </body>
 </html>
