@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 02, 2026 at 08:31 PM
+-- Generation Time: Sep 11, 2026 at 12:14 PM
 -- Server version: 10.4.32-MariaDB
--- PHP Version: 8.2.12
+-- PHP Version: 8.0.30
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -43,11 +43,11 @@ CREATE TABLE `books` (
 --
 
 INSERT INTO `books` (`BookID`, `CustomBookID`, `Title`, `Stock`, `Price`, `CreatedAt`, `Category`, `Image`) VALUES
-(1, 'TXP1001', 'THE ALCHEMIST', 15, 450.00, '2026-09-02 11:07:50', 'Fiction', 'images/TXP1001.jpg'),
+(1, 'TXP1001', 'THE ALCHEMIST', 14, 450.00, '2026-09-02 11:07:50', 'Fiction', 'images/TXP1001.jpg'),
 (2, 'TXP1002', 'ATOMIC HABITS', 27, 520.00, '2026-09-02 11:07:50', 'Self-Help', 'images/TXP1002.jpg'),
-(3, 'TXP1003', 'A SONG OF ICE AND FIRE', 34, 2225.00, '2026-09-02 11:07:50', 'Fiction', 'images/TXP1003.jpg'),
-(4, 'TXP1004', 'RICH DAD POOR DAD', 9, 570.00, '2026-09-02 11:07:50', 'Business', 'images/TXP1004.jpg'),
-(5, 'TXP1005', 'CLEAN CODE', 7, 1250.00, '2026-09-02 11:07:50', 'Programming', 'images/TXP1005.jpg'),
+(3, 'TXP1003', 'A SONG OF ICE AND FIRE', 32, 2225.00, '2026-09-02 11:07:50', 'Fiction', 'images/TXP1003.jpg'),
+(4, 'TXP1004', 'RICH DAD POOR DAD', 8, 570.00, '2026-09-02 11:07:50', 'Business', 'images/TXP1004.jpg'),
+(5, 'TXP1005', 'CLEAN CODE', 5, 1250.00, '2026-09-02 11:07:50', 'Programming', 'images/TXP1005.jpg'),
 (6, 'TXP1006', 'THE PRAGMATIC PROGRAMMER', 18, 1400.00, '2026-09-02 11:07:50', 'Programming', 'images/TXP1006.jpg'),
 (7, 'TXP1007', 'DESIGN PATTERNS', 8, 1650.00, '2026-09-02 11:07:50', 'Programming', 'images/TXP1007.jpg'),
 (8, 'TXP1008', 'INTRODUCTION TO ALGORITHMS', 10, 2100.00, '2026-09-02 11:07:50', 'Programming', 'images/TXP1008.jpg'),
@@ -142,7 +142,8 @@ INSERT INTO `books` (`BookID`, `CustomBookID`, `Title`, `Stock`, `Price`, `Creat
 (98, 'TXSH1014', 'MINDSET BY CAROL DWECK', 25, 590.00, '2026-09-02 11:07:50', 'Self-Help', 'images/TXSH1014.jpg'),
 (99, 'TXSH1015', 'ESSENTIALISM', 19, 630.00, '2026-09-02 11:07:50', 'Self-Help', 'images/TXSH1015.jpg'),
 (100, 'TXSH1016', 'THE 5 AM CLUB', 27, 540.00, '2026-09-02 11:07:50', 'Self-Help', 'images/TXSH1016.jpg'),
-(101, NULL, 'TESTING FILE UPLOAD', 1, 1.00, '2026-09-02 21:39:46', '', 'images/TXP101.jpg');
+(110, 'TXS1018', 'ENCYCLOPEDIA OF MAMMALS', 12, 120.00, '2026-09-08 15:35:09', 'Science', 'images/TXS1018_1788860109.jpg'),
+(111, 'TXP1018', 'TESTING MVC', 1, 101.00, '2026-09-11 15:02:06', 'Programming', '../public/images/TXP1018_1789117326.png');
 
 -- --------------------------------------------------------
 
@@ -166,7 +167,20 @@ INSERT INTO `orderitems` (`OrderItemID`, `OrderID`, `BookID`, `Quantity`, `UnitP
 (1, 1, 1, 1, 450.00),
 (2, 1, 2, 1, 520.00),
 (3, 2, 5, 5, 1250.00),
-(4, 2, 3, 1, 2225.00);
+(4, 2, 3, 1, 2225.00),
+(5, 3, 1, 1, 450.00),
+(6, 3, 2, 1, 520.00),
+(7, 3, 3, 1, 2225.00),
+(8, 4, 5, 1, 1250.00),
+(9, 5, 3, 1, 2225.00),
+(10, 6, 5, 1, 1250.00),
+(11, 6, 3, 1, 2225.00),
+(12, 6, 4, 1, 570.00),
+(13, 6, 1, 1, 450.00),
+(14, 7, 11, 2, 1100.00),
+(15, 7, 12, 3, 780.00),
+(16, 7, 10, 5, 950.00),
+(17, 7, 14, 1, 1350.00);
 
 -- --------------------------------------------------------
 
@@ -190,7 +204,12 @@ CREATE TABLE `orders` (
 
 INSERT INTO `orders` (`OrderID`, `OrderNumber`, `UserID`, `TotalAmount`, `OrderType`, `OrderDate`, `Status`) VALUES
 (1, 'ORD1038', 4, 1030.00, 'Online', '2026-09-03 00:19:04', 'Pending'),
-(2, 'ORD-1788373651', 2, 8475.00, 'In Store', '2026-09-03 00:27:31', 'Completed');
+(2, 'ORD-1788373651', 2, 8475.00, 'In Store', '2026-09-03 00:27:31', 'Completed'),
+(3, 'ORD6618', 4, 3255.00, 'Online', '2026-09-09 13:31:41', 'Pending'),
+(4, 'ORD-1789097690', 2, 1250.00, 'In Store', '2026-09-11 09:34:50', 'Completed'),
+(5, 'ORD-1789097754', 2, 2225.00, 'In Store', '2026-09-11 09:35:54', 'Completed'),
+(6, 'ORD-1789120125', 2, 4495.00, 'In Store', '2026-09-11 15:48:45', 'Completed'),
+(7, 'ORD2243', 4, 10700.00, 'Online', '2026-09-11 16:04:11', 'Pending');
 
 -- --------------------------------------------------------
 
@@ -216,33 +235,39 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`UserID`, `CustomUserID`, `FullName`, `Email`, `Phone`, `PasswordHash`, `Role`, `Status`, `ShippingAddress`, `CreatedAt`) VALUES
-(1, 'T001', 'ABTAHEE', 'admin@bookshop.com', '01948315643', 'admin123', 'ADMIN', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
-(2, 'T002', 'MAYESHA', 'employee@bookshop.com', '01920936124', 'employee123', 'EMPLOYEE', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
-(3, 'T003', 'TAHMID', 'tahmid01@bookshop.com', '01941831102', 'customer123', 'CUSTOMER', 'ACTIVE', 'House 19, Road 18, Road 15, Dhanmondi, Dhaka', '2026-09-02 11:00:10'),
-(4, 'T004', 'ZOHRA', 'customer@bookshop.com', '01924701753', 'customer123', 'CUSTOMER', 'ACTIVE', 'House 22, Road 12, Block E, Mirpur, Dhaka', '2026-09-02 11:00:10'),
-(5, 'T005', 'RAHIM UDDIN', 'rahim_admin@bookshop.com', '01939733695', 'rahim_admin_123', 'ADMIN', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
-(6, 'T006', 'SULTANA KAMAL', 'sultana_admin@bookshop.com', '01935860105', 'sultana_admin_123', 'ADMIN', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
-(7, 'T007', 'TANVIR HASSAN', 'tanvir_employee@bookshop.com', '01950099446', 'tanvir_employee_123', 'EMPLOYEE', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
-(8, 'T008', 'NUSHAT CHOWDHURY', 'nushat_employee@bookshop.com', '01942916916', 'nushat_employee_123', 'EMPLOYEE', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
-(9, 'T009', 'AREEB AHMED', 'areeb_employee@bookshop.com', '01954286246', 'areeb_employee_123', 'EMPLOYEE', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
-(10, 'T010', 'MEHREEN ISLAM', 'mehreen_employee@bookshop.com', '01942680487', 'mehreen_employee_123', 'EMPLOYEE', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
-(11, 'T011', 'SAKIB REZA', 'sakib_employee@bookshop.com', '01940543700', 'sakib_employee_123', 'EMPLOYEE', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
-(12, 'T012', 'FARHANA YEASMIN', 'farhana_employee@bookshop.com', '01964677040', 'farhana_employee_123', 'EMPLOYEE', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
-(13, 'T013', 'ZUBAYER ALAM', 'zubayer_employee@bookshop.com', '01911754102', 'zubayer_employee_123', 'EMPLOYEE', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
-(14, 'T014', 'SAMIHA KHAN', 'samiha_employee@bookshop.com', '01934739396', 'samiha_employee_123', 'EMPLOYEE', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
-(15, 'T015', 'ARIF KABIR', 'arif_customer@bookshop.com', '01910131844', 'arif_customer_123', 'CUSTOMER', 'ACTIVE', 'House 65, Road 5, Sector 14, Uttara, Dhaka', '2026-09-02 11:00:10'),
-(16, 'T016', 'NILA HOQUE', 'nila_customer@bookshop.com', '01951947431', 'nila_customer_123', 'CUSTOMER', 'ACTIVE', 'House 44, Road 16, Gulshan, Dhaka', '2026-09-02 11:00:10'),
-(17, 'T017', 'MAHMUDUL HASAN', 'mahmudul_customer@bookshop.com', '01982343079', 'mahmudul_customer_123', 'CUSTOMER', 'ACTIVE', 'House 12, Road 4, Block D, Banani, Dhaka', '2026-09-02 11:00:10'),
-(18, 'T018', 'SABRINA JAHAN', 'sabrina_customer@bookshop.com', '01936922297', 'sabrina_customer_123', 'CUSTOMER', 'ACTIVE', 'House 64, Road 6, Block B, Mirpur, Dhaka', '2026-09-02 11:00:10'),
-(19, 'T019', 'FAYSAL AHMED', 'faysal_customer@bookshop.com', '01991024423', 'faysal_customer_123', 'CUSTOMER', 'ACTIVE', 'House 85, Road 11, Sector 10, Uttara, Dhaka', '2026-09-02 11:00:10'),
-(20, 'T020', 'TASNEEM ZAHRA', 'tasneem_customer@bookshop.com', '01928909519', 'tasneem_customer_123', 'CUSTOMER', 'ACTIVE', 'House 5, Road 13, Road 22, Dhanmondi, Dhaka', '2026-09-02 11:00:10'),
-(21, 'T021', 'IMTIAZ MAHMOOD', 'imtiaz_customer@bookshop.com', '01922609304', 'imtiaz_customer_123', 'CUSTOMER', 'ACTIVE', 'House 36, Road 7, Gulshan, Dhaka', '2026-09-02 11:00:10'),
-(22, 'T022', 'NOWSHIN SHARMA', 'nowshin_customer@bookshop.com', '01918152234', 'nowshin_customer_123', 'CUSTOMER', 'ACTIVE', 'House 60, Road 15, Gulshan, Dhaka', '2026-09-02 11:00:10'),
-(23, 'T023', 'KAZI RAFIQ', 'kazi_customer@bookshop.com', '01974863323', 'kazi_customer_123', 'CUSTOMER', 'Active', 'House 29, Road 6, Block D, Banani, Dhaka', '2026-09-02 11:00:10'),
-(24, 'T024', 'LAMIYA KHANAM', 'lamiya_customer@bookshop.com', '01972653547', 'lamiya123', 'CUSTOMER', 'Active', 'House 89, Road 8, Sector 6, Uttara, Dhaka', '2026-09-02 11:00:10'),
-(26, NULL, 'FOYSAL AHMED', 'foysal_admin@bookshop.com', '01929722000', 'foysal123', 'ADMIN', 'Active', 'PARIS ROAD,MIRPUR-10', '2026-09-02 16:03:14'),
-(27, 'T026', 'SHIKDAR', 'shikdar_customer@bookshop.com', NULL, '$2y$10$ZiPQku18rE7y45jCJGoHveMb6qNUYOxYdpigc0MWnxxcP0fktczua', 'CUSTOMER', 'Active', NULL, '2026-09-02 22:43:02'),
-(28, 'T027', 'JOHN DOE', 'doe_employee@bookshop.com', NULL, '$2y$10$s/TlgoQ8EnSPbtnDweSn/ebKkY2RgdfiEwgrIMKYXbMPewDbXm3wW', 'EMPLOYEE', 'Active', NULL, '2026-09-02 23:04:09');
+(1, 'T001', 'ABTAHEE', 'admin@bookshop.com', '01929722066', '$2y$10$5EIkOJw2vgK6VjgqIvC.iuqD4QNVZ5p9hBPPTerfbFbDYFtPe6guq', 'ADMIN', 'Active', 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', '2026-09-02 11:00:10'),
+(2, 'T002', 'MAYESHA', 'employee@bookshop.com', '01920936124', '$2y$10$LbR2y7V89FE/Zmr7/f9yLeQoJfp8hC9AxnbF9uHvqlDRkgIP1W69K', 'EMPLOYEE', 'Active', NULL, '2026-09-02 11:00:10'),
+(3, 'T003', 'TAHMID', 'tahmid01@bookshop.com', '01941831102', '$2y$10$4FzqE1fSJVAYrTjGqnD.y.PZDuCbUpJF1kfzrAABbMyccVu7oXMe.', 'CUSTOMER', 'Active', 'House 19, Road 18, Road 15, Dhanmondi, Dhaka', '2026-09-02 11:00:10'),
+(4, 'T004', 'ZOHRA', 'customer@bookshop.com', '01924701696', '$2y$10$2SpYhWw9YWVBl4ROspxJx.XhbMuaUGE28bRWJkSlxx/5QxERzDTpq', 'CUSTOMER', 'Active', 'House 222, Road 122, Block E, MIRPUR, Dhaka', '2026-09-02 11:00:10'),
+(5, 'T005', 'RAHIM UDDIN', 'rahim_admin@bookshop.com', '01939733695', '$2y$10$AtvjCcNgxNLk1E8u0iucReEiBjZ7GlMyeFfUCPrH1uw0epaEBsTL2', 'ADMIN', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
+(6, 'T006', 'SULTANA KAMAL', 'sultana_admin@bookshop.com', '01935860105', '$2y$10$cZ6C3xSZfHed.GITXHWcyOCAwxzYbyiqkhFWHNDQgw1MQW7UEs9P.', 'ADMIN', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
+(7, 'T007', 'TANVIR HASSAN', 'tanvir_employee@bookshop.com', '01950099446', '$2y$10$g4YjVzjVSdZytHsGHDNhdOJMA4UpnuF1kLucgfL82IWxqjdOp4uza', 'EMPLOYEE', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
+(8, 'T008', 'NUSHAT CHOWDHURY', 'nushat_employee@bookshop.com', '01942916916', '$2y$10$IBtDhuqmyGmCN1Y8hwz97eWsQr1C73y8xWvUE5EWvWfQIUvk68eFe', 'EMPLOYEE', 'Active', NULL, '2026-09-02 11:00:10'),
+(9, 'T009', 'AREEB AHMED', 'areeb_employee@bookshop.com', '01954286246', '$2y$10$84a1r.zHaEaSOV4CpGljReZzlFlSHHCKC7/rbk9FrLwbNRV/TTjlG', 'EMPLOYEE', 'Active', NULL, '2026-09-02 11:00:10'),
+(10, 'T010', 'MEHREEN ISLAM', 'mehreen_employee@bookshop.com', '01942680487', '$2y$10$yP8sC.6718fy1gT7sE/7j../O7yOtlCJE9qIjTCcmj8obid5xDQve', 'EMPLOYEE', 'Active', NULL, '2026-09-02 11:00:10'),
+(11, 'T011', 'SAKIB REZA', 'sakib_employee@bookshop.com', '01940543700', '$2y$10$lo8SKLz6uDY8tVYveV9JauRys/28KP0iPYAAiavQ7Tlf8SiSkzt9W', 'EMPLOYEE', 'Active', NULL, '2026-09-02 11:00:10'),
+(12, 'T012', 'FARHANA YEASMIN', 'farhana_employee@bookshop.com', '01964677040', '$2y$10$ONcvEfcxTlgFm28wi4QXYePD6Ef2E0J1AMyCNaqPdM6U/n0TujLCO', 'EMPLOYEE', 'Active', NULL, '2026-09-02 11:00:10'),
+(13, 'T013', 'ZUBAYER ALAM', 'zubayer_employee@bookshop.com', '01911754102', '$2y$10$ju2n1ELL6amLTpkkvs4dDOTupmqWS7BKtdZ9oHBctJ8HzQZICgGOa', 'EMPLOYEE', 'Active', NULL, '2026-09-02 11:00:10'),
+(14, 'T014', 'SAMIHA KHAN', 'samiha_employee@bookshop.com', '01934739396', '$2y$10$75J85kMivo2VbbrF0fPzx.eOXhTP/aJlYFpqVI6WeagNRMpROY/AW', 'EMPLOYEE', 'ACTIVE', NULL, '2026-09-02 11:00:10'),
+(15, 'T015', 'ARIF KABIR', 'arif_customer@bookshop.com', '01910131844', '$2y$10$h78grHZ1f6zQ7Wjv/G6PVedVW8xnVKzygWUljzVDDhvFzm1k1Bfm.', 'CUSTOMER', 'ACTIVE', 'House 65, Road 5, Sector 14, Uttara, Dhaka', '2026-09-02 11:00:10'),
+(16, 'T016', 'NILA HOQUE', 'nila_customer@bookshop.com', '01951947431', '$2y$10$U00HDpRbGIincVvLwKjg8ukRVUu32goFSFhFNorO9tC23CaLSabfC', 'CUSTOMER', 'ACTIVE', 'House 44, Road 16, Gulshan, Dhaka', '2026-09-02 11:00:10'),
+(17, 'T017', 'MAHMUDUL HASAN', 'mahmudul_customer@bookshop.com', '01982343079', '$2y$10$.ONxkJmR0uDfASh02D9Y/OnIlVfJTG/2ak6StnefsYHGXM2j5sY4W', 'CUSTOMER', 'ACTIVE', 'House 12, Road 4, Block D, Banani, Dhaka', '2026-09-02 11:00:10'),
+(18, 'T018', 'SABRINA JAHAN', 'sabrina_customer@bookshop.com', '01936922297', '$2y$10$sY2RIHZOU9CRr3I0X6yhEeZ0IBFw/Rg.gHfYSaJt4wrRjBGxyIUMy', 'CUSTOMER', 'ACTIVE', 'House 64, Road 6, Block B, Mirpur, Dhaka', '2026-09-02 11:00:10'),
+(19, 'T019', 'FAYSAL AHMED', 'faysal_customer@bookshop.com', '01991024423', '$2y$10$kdaQ/8U64LtI5GOFR6nvdOHNQQhdP.L0FjIW6acko6jcnssECHz9q', 'CUSTOMER', 'ACTIVE', 'House 85, Road 11, Sector 10, Uttara, Dhaka', '2026-09-02 11:00:10'),
+(20, 'T020', 'TASNEEM ZAHRA', 'tasneem_customer@bookshop.com', '01928909519', '$2y$10$roSz/Lz9XqXClbzXEcdlbeSZsju463VXVsa2xy2p55zgsYUA5EdSq', 'CUSTOMER', 'ACTIVE', 'House 5, Road 13, Road 22, Dhanmondi, Dhaka', '2026-09-02 11:00:10'),
+(21, 'T021', 'IMTIAZ MAHMOOD', 'imtiaz_customer@bookshop.com', '01922609304', '$2y$10$nJ6JXweod7dzpuvROvv5pes.VCFh6kVn6/HNqZg6isdKSLwQEMQGm', 'CUSTOMER', 'ACTIVE', 'House 36, Road 7, Gulshan, Dhaka', '2026-09-02 11:00:10'),
+(22, 'T022', 'NOWSHIN SHARMA', 'nowshin_customer@bookshop.com', '01918152234', '$2y$10$z.Q5V4uPzYgEf/39/jnVKuJsBcesMzYBOkQW6TBp0xjEHbGYHidxW', 'CUSTOMER', 'ACTIVE', 'House 60, Road 15, Gulshan, Dhaka', '2026-09-02 11:00:10'),
+(23, 'T023', 'KAZI RAFIQ', 'kazi_customer@bookshop.com', '01974863323', '$2y$10$sjKAajh9FtYNFNxDY7i/7uTACweU.P81aQVIg.EZwebTB3..jdrCe', 'CUSTOMER', 'Active', 'House 29, Road 6, Block D, Banani, Dhaka', '2026-09-02 11:00:10'),
+(24, 'T024', 'LAMIYA KHANAM', 'lamiya_customer@bookshop.com', '01972653547', '$2y$10$fPdA3.Ic/DpMWbTkC5eC2e2H8F0.3sK0deu3LVO2LV/tXSlmUTlRy', 'CUSTOMER', 'Active', 'House 89, Road 8, Sector 6, Uttara, Dhaka', '2026-09-02 11:00:10'),
+(26, 'T026', 'FOYSAL AHMED', 'foysal_admin@bookshop.com', '01929722000', '$2y$10$jb6STveGZyuXgXXDrOrzXOAJxGTXrmiaZFGdunndXzAQS6WHep8uW', 'ADMIN', 'Active', 'PARIS ROAD,MIRPUR-10', '2026-09-02 16:03:14'),
+(27, 'T027', 'SHIKDAR', 'shikdar_customer@bookshop.com', NULL, '$2y$10$ZiPQku18rE7y45jCJGoHveMb6qNUYOxYdpigc0MWnxxcP0fktczua', 'CUSTOMER', 'Active', NULL, '2026-09-02 22:43:02'),
+(28, 'T028', 'JOHN DOE', 'doe_employee@bookshop.com', NULL, '$2y$10$s/TlgoQ8EnSPbtnDweSn/ebKkY2RgdfiEwgrIMKYXbMPewDbXm3wW', 'EMPLOYEE', 'Active', NULL, '2026-09-02 23:04:09'),
+(29, 'T029', 'RAHIDUL ISLAM', 'rahidul_customer@bookshop.com', NULL, '$2y$10$tpVdLpWxiCvZpraOaWEnQOEmEaA0uLEDp4VDifpAb4r/PT2rrLCc.', 'CUSTOMER', 'Active', NULL, '2026-09-08 13:37:41'),
+(30, 'T029', 'TESTING101', 'testing_customer@bookshop.com', NULL, '$2y$10$cXhmxkGXMiOEkRhBFrUpn.uUKMJcSbsDUSIHiF/PfvZDIvXH6SIHm', 'CUSTOMER', 'Active', NULL, '2026-09-08 14:29:41'),
+(31, 'T031', 'SIGNUP TESTING PROP', 'singuptesting_customer@bookshop.com', '01929722101', '$2y$10$yEJRSz8PFMRhn7WdF4veTu94v5bL3MBXVfLWMQ3qwTDghB47KDusS', 'CUSTOMER', 'Active', NULL, '2026-09-08 14:32:22'),
+(32, 'T032', 'Muhammad Tahmid Abtahee', 'muhammad_admin@bookshop.com', NULL, '$2y$10$JsyR9bk7hGjmkEfUUm/YU.6UMxlnJXFuEps6pGli8ihsdGUAsQZTq', 'ADMIN', 'Active', NULL, '2026-09-11 15:18:06'),
+(33, 'T033', 'xyz', 'xyz_customer@bookshop.com', NULL, '$2y$10$kYCkbbFoXJP9HsR2s0qYbe2.8zFe/pPj1IxK7VlgHtfj88I9/EZgq', 'CUSTOMER', 'Active', NULL, '2026-09-11 15:19:12'),
+(34, 'T034', 'test101user', 'test101_customer@bookshop.com', NULL, '$2y$10$mwsjxxfzLQtA101/qFGQJuE.ZKzBaTyqEQOvd96rfk/LpYsDPRE12', 'CUSTOMER', 'Active', NULL, '2026-09-11 15:42:28');
 
 --
 -- Indexes for dumped tables
@@ -283,25 +308,25 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `books`
 --
 ALTER TABLE `books`
-  MODIFY `BookID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=108;
+  MODIFY `BookID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=113;
 
 --
 -- AUTO_INCREMENT for table `orderitems`
 --
 ALTER TABLE `orderitems`
-  MODIFY `OrderItemID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `OrderItemID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `OrderID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `OrderID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `UserID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+  MODIFY `UserID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
 
 --
 -- Constraints for dumped tables
