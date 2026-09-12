@@ -1,98 +1,20 @@
 <?php
-session_start();
-require_once 'dbconnection.php';
-$errors = [];
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-   
-    $email    = trim($_POST['EmailAdd'] ?? '');
-    $password = $_POST['Pass'] ?? '';
-
-   
-    if (empty($email)) {
-        $errors[] = "Email is required.";
-    } elseif (!preg_match("/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/", $email)) {
-        $errors[] = "Invalid email format.";
-    }
-
-    if (empty($password)) {
-        $errors[] = "Password is required.";
-    }
-
-    
-    if (empty($errors)) {
-        
-$sql = "SELECT UserID, Email, PasswordHash, Role FROM users WHERE Email = ?"; 
-
-
-$stmt = mysqli_prepare($conn, $sql); 
-
-
-if ($stmt) { 
-    
-    mysqli_stmt_bind_param($stmt, "s", $email); 
-    
-    
-    mysqli_stmt_execute($stmt); 
-    
-    
-    $result = mysqli_stmt_get_result($stmt); 
-
-    
-    if ($user = mysqli_fetch_assoc($result)) { 
-        
-        if ($password === $user['PasswordHash']) { 
-            
-            $role = strtolower($user['Role']); 
-            
-            
-            $_SESSION['user_id'] = $user['UserID']; 
-            
-            
-            $_SESSION['user_role'] = $role; 
-
-            
-            if ($role === 'admin') { 
-                header("Location: admin_dashboard.php"); 
-                exit(); 
-                
-            
-            } elseif ($role === 'employee') { 
-                header("Location: employee_dashboard.php"); 
-                exit(); 
-                
-            
-            } elseif ($role === 'customer') { 
-                header("Location: customer_dashboard.php"); 
-                exit(); 
-                
-            
-            } else { 
-                $errors[] = "Unauthorized access role."; 
-            }
-            
-        
-        } else { 
-            $errors[] = "Invalid email or password."; 
-        }
-        
-    
-    } else { 
-        $errors[] = "Invalid email or password."; 
-    }
-    
-    
-    mysqli_stmt_close($stmt); 
-    
-
-} else { 
-    $errors[] = "Database query failed."; 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
-    }
-}
+
+$errors = $_SESSION['login_errors'] ?? [];
+$email = $_SESSION['old_email'] ?? '';
+$password = $_SESSION['old_password'] ?? '';
+
+
+unset($_SESSION['login_errors']);
+unset($_SESSION['old_email']);
+unset($_SESSION['old_password']);
 ?>
-
 <!DOCTYPE html>
+<html>
 <head>
 	<title>Login - BookShop</title>
 	<style>
@@ -102,7 +24,6 @@ if ($stmt) {
 			margin: 0;
 			padding: 0;
 			background-color: #ffffff;
-			
 		}
 		#page_wrapper {
 			width: 100%;
@@ -152,14 +73,12 @@ if ($stmt) {
 			background-color: #d8d3d3;
 			outline: none;
 		}
-
         .error-text {
         	color: red;
         	font-size: 12px;
         	display: block;
         	margin-bottom: 10px;
         }
-
 		#forgot_link {
 			display: block;
 			text-align: right;
@@ -210,23 +129,23 @@ if ($stmt) {
 	<table id="page_wrapper">
 		<tr>
 			<td align="center" valign="middle">
-
-				<form action="" method="POST" onsubmit="return validate(this);" novalidate>
+				
+				<form action="../controllers/login_controller.php" method="POST" onsubmit="return validate(this);" novalidate>
 					<table id="login_table">
 						<tr>
 							<td id="left_box">
-								<img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="BookShop Logo" width="180">
+								
+								<img src="../public/images/ONLINE_BOOKSHOP_LOGO.jpg" alt="BookShop Logo" width="180">
 							</td>
 							<td id="right_box">
 								<h2>Login</h2>
 
 								<label>Email</label><br>
-								<input type="email" name="EmailAdd" id="EmailAdd" value="<?php echo htmlspecialchars($email ?? ''); ?>" ><br>
+								<input type="email" name="EmailAdd" id="EmailAdd" value="<?php echo htmlspecialchars($email); ?>"><br>
 								<span id="EmailAddErrMsg" class="error-text"></span>
 
-
 								<label>Password</label><br>
-								<input type="password" name="Pass" id="Pass" value="<?php echo htmlspecialchars($password ?? ''); ?>"  ><br>
+								<input type="password" name="Pass" id="Pass" value="<?php echo htmlspecialchars($password); ?>"><br>
 								<span id="PassErrMsg" class="error-text"></span>
 								<a href="forgot_password.php" id="forgot_link">Forgot Password?</a>
 
@@ -239,13 +158,11 @@ if ($stmt) {
 						</tr>
 					</table>
 				</form>
-
 			</td>
 		</tr>
 	</table>
 
-<script>
-        
+    <script>
         function validate(p) {
             const email = p.EmailAdd.value.trim();
             const password = p.Pass.value.trim();
@@ -270,7 +187,5 @@ if ($stmt) {
             return flag;
         }
     </script>
-
-
 </body>
 </html>

@@ -1,152 +1,26 @@
 <?php
-session_start();
-require_once 'dbconnection.php';
-
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role'])) {
     header("Location: login.php");
     exit();
 }
-$user_id = $_SESSION['user_id'];
-$user_role = strtoupper($_SESSION['user_role']); 
 
-switch ($user_role) {
-    case 'ADMIN':
-        $dashboard_url = 'admin_dashboard.php';
-        break;
-    case 'EMPLOYEE':
-        $dashboard_url = 'employee_dashboard.php';
-        break;
-    case 'CUSTOMER':
-    default:
-        $dashboard_url = 'customer_dashboard.php';
-        break;
-}
+$profile = $_SESSION['profile_data'] ?? [];
+$errors = $_SESSION['errors'] ?? [];
+$success_msg = $_SESSION['success_msg'] ?? "";
+unset($_SESSION['errors'], $_SESSION['success_msg']);
 
-$errors = [];
-$success_msg = "";
-
-$userSql = "SELECT FullName, Email, Phone, ShippingAddress, PasswordHash FROM users WHERE UserID = ?";
-$userStmt = mysqli_prepare($conn, $userSql);
-
-if ($userStmt) {
-    mysqli_stmt_bind_param($userStmt, "i", $user_id);
-    mysqli_stmt_execute($userStmt);
-    $userResult = mysqli_stmt_get_result($userStmt);
-    $currentUser = mysqli_fetch_assoc($userResult);
-    mysqli_stmt_close($userStmt);
-}
-
-if (!$currentUser) {
-    die("User session invalid or user not found.");
-}
-
-$FName    = $currentUser['FullName'] ?? '';
-$EmailAdd = $currentUser['Email'] ?? '';
-$PHnumber = $currentUser['Phone'] ?? '';
-$address  = $currentUser['ShippingAddress'] ?? '';
-
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $FName    = trim($_POST['FName'] ?? '');
-    $EmailAdd = trim($_POST['EmailAdd'] ?? '');
-    $PHnumber = trim($_POST['PHnumber'] ?? '');
-    $address  = trim($_POST['address'] ?? '');
-    $CurPass  = $_POST['CurPass'] ?? '';
-    $Pass     = $_POST['Pass'] ?? '';
-    $CPass    = $_POST['CPass'] ?? '';
-
-    
-    if (empty($FName)) {
-        $errors[] = "Full Name is required.";
-    } elseif (!preg_match("/^[a-zA-Z\s]+$/", $FName)) {
-        $errors[] = "Full Name can only contain letters and spaces.";
-    }
-
-    
-    if (empty($EmailAdd)) {
-        $errors[] = "Email address is required.";
-    } elseif (!preg_match("/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/", $EmailAdd)) {
-        $errors[] = "Invalid email format.";
-    }
-
-    
-    if (empty($PHnumber)) {
-        $errors[] = "Contact number is required.";
-    } elseif (!preg_match("/^[0-9]{10,15}$/", $PHnumber)) {
-        $errors[] = "Contact number must be between 10 and 15 digits.";
-    }
-
-   
-    if (empty($address)) {
-        $errors[] = "Shipping address is required.";
-    }
-
-    $changePassword = false;
-    if (!empty($CurPass) || !empty($Pass) || !empty($CPass)) {
-        if (empty($CurPass)) {
-            $errors[] = "Current password is required to set a new password.";
-        }
-
-        elseif ($CurPass !== $currentUser['PasswordHash']) {
-            $errors[] = "Current password is incorrect.";
-        }
-        if (empty($Pass)) {
-            $errors[] = "New password is required.";
-        }
-        elseif (strlen($Pass) < 6) {
-            $errors[] = "New password must be at least 6 characters long.";
-        }
-        if ($Pass !== $CPass) {
-            $errors[] = "New password and Confirm password do not match.";
-        }
-
-        if (empty($errors)) {
-            $changePassword = true;
-        }
-    }
-
-    
-    if (empty($errors)) {
-        $emailCheckSql = "SELECT UserID FROM users WHERE Email = ? AND UserID != ?";
-        $emailCheckStmt = mysqli_prepare($conn, $emailCheckSql);
-        if ($emailCheckStmt) {
-            mysqli_stmt_bind_param($emailCheckStmt, "si", $EmailAdd, $user_id);
-            mysqli_stmt_execute($emailCheckStmt);
-            mysqli_stmt_store_result($emailCheckStmt);
-            if (mysqli_stmt_num_rows($emailCheckStmt) > 0) {
-                $errors[] = "Email address is already in use by another account.";
-            }
-            mysqli_stmt_close($emailCheckStmt);
-        }
-    }
-
-
-    if (empty($errors)) {
-        if ($changePassword) {
-            $updateSql = "UPDATE users SET FullName = ?, Email = ?, Phone = ?, ShippingAddress = ?, PasswordHash = ? WHERE UserID = ?";
-            $updateStmt = mysqli_prepare($conn, $updateSql);
-            mysqli_stmt_bind_param($updateStmt, "sssssi", $FName, $EmailAdd, $PHnumber, $address, $Pass, $user_id);
-        } else {
-            $updateSql = "UPDATE users SET FullName = ?, Email = ?, Phone = ?, ShippingAddress = ? WHERE UserID = ?";
-            $updateStmt = mysqli_prepare($conn, $updateSql);
-            mysqli_stmt_bind_param($updateStmt, "ssssi", $FName, $EmailAdd, $PHnumber, $address, $user_id);
-        }
-
-        if ($updateStmt) {
-            if (mysqli_stmt_execute($updateStmt)) {
-                $success_msg = "Profile updated successfully!";
-                $currentUser['PasswordHash'] = $changePassword ? $Pass : $currentUser['PasswordHash'];
-            } else {
-                $errors[] = "Failed to update profile. Please try again.";
-            }
-            mysqli_stmt_close($updateStmt);
-        } else {
-            $errors[] = "Database update query failed.";
-        }
-}
-}
+$FName = $profile['FName'] ?? '';
+$EmailAdd = $profile['EmailAdd'] ?? '';
+$PHnumber = $profile['PHnumber'] ?? '';
+$address = $profile['address'] ?? '';
+$dashboard_url = $profile['dashboard_url'] ?? '#';
 ?>
 <!DOCTYPE html>
+<html>
 <head>
 	<title>Settings - BookShop</title>
 	<style>
@@ -245,7 +119,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 	<table id="header_table">
 		<tr>
 			<td>
-				<img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
+				<img src="../public/images/ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
 				<b>BOOKSHOP MANAGEMENT</b>
 			</td>
 			<td align="right"><b>SETTINGS</b></td>
@@ -256,17 +130,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 		<tr>
 			<td id="sidebar">
 				<a href="<?php echo htmlspecialchars($dashboard_url); ?>">BACK TO DASHBOARD</a>
-				<a href="profile_settings.php" id="active_menu">SETTINGS</a>
+				<a href="../controllers/profile_settings_controller.php" id="active_menu">SETTINGS</a>
 				
 				<br><br>
 				<div style="padding: 0 20px;">
-					<a href="login.php" style="padding: 0;"><button type="button" class="logout-btn">LOG OUT</button></a>
+					<a href="../controllers/admin_dashboard_controller.php?action=logout" style="padding: 0;"><button type="button" class="logout-btn">LOG OUT</button></a>
 				</div>
 			</td>
 			<td id="content">
 				<?php if (!empty($errors)): ?>
                     <div class="error-box">
-                        <ul>
+                        <ul style="margin:0; padding-left: 20px;">
                             <?php foreach ($errors as $error): ?>
                                 <li><?php echo htmlspecialchars($error); ?></li>
                             <?php endforeach; ?>
@@ -274,44 +148,44 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     </div>
                 <?php endif; ?>
 
-                
                 <?php if (!empty($success_msg)): ?>
                     <div class="success-box">
-                        <?php echo htmlspecialchars($success_msg); ?>
+                        <b><?php echo htmlspecialchars($success_msg); ?></b>
                     </div>
                 <?php endif; ?>
-				<form id="profileForm" action="profile_settings.php" method="POST" onsubmit="return validateForm();">
+
+				<form id="profileForm" action="../controllers/profile_settings_controller.php" method="POST" onsubmit="return validateForm();" novalidate>
 					<fieldset>
 						<legend>Personal Information</legend>
 						<label>Name :</label><br>
-						<input type="text" name="FName" id="FName" value="<?php echo htmlspecialchars($FName); ?>"><br><br>
+						<input type="text" name="FName" id="FName" value="<?php echo htmlspecialchars($FName); ?>"><br>
 						<span id="err_FName" class="js-error"></span><br>
 
 						<label>Email :</label><br>
-						<input type="email" name="EmailAdd" id="EmailAdd" value="<?php echo htmlspecialchars($EmailAdd); ?>"><br><br>
+						<input type="email" name="EmailAdd" id="EmailAdd" value="<?php echo htmlspecialchars($EmailAdd); ?>"><br>
 						<span id="err_EmailAdd" class="js-error"></span><br>
 
 						<label>Contact :</label><br>
-						<input type="text" name="PHnumber" id="PHnumber" value="<?php echo htmlspecialchars($PHnumber); ?>"><br><br>
+						<input type="text" name="PHnumber" id="PHnumber" value="<?php echo htmlspecialchars($PHnumber); ?>"><br>
 						<span id="err_PHnumber" class="js-error"></span><br>
 
 						<label>Shipping Address :</label><br>
-						<textarea name="address" id="address" rows="3" cols="40"><?php echo htmlspecialchars($address); ?></textarea>
+						<textarea name="address" id="address" rows="3" cols="40"><?php echo htmlspecialchars($address); ?></textarea><br>
 						<span id="err_address" class="js-error"></span>
 					</fieldset>
 
 					<fieldset>
 						<legend>Security Settings</legend>
 						<label>Current Password :</label><br>
-						<input type="password" name="CurPass" id="CurPass"><br><br>
+						<input type="password" name="CurPass" id="CurPass"><br>
 						<span id="err_CurPass" class="js-error"></span><br>
 
 						<label>New Password :</label><br>
-						<input type="password" name="Pass" id="Pass"><br><br>
+						<input type="password" name="Pass" id="Pass"><br>
 						<span id="err_Pass" class="js-error"></span><br>
 
 						<label>Confirm Password :</label><br>
-						<input type="password" name="CPass" id="CPass"><br><br>
+						<input type="password" name="CPass" id="CPass"><br>
 						<span id="err_CPass" class="js-error"></span>
 					</fieldset>
 
@@ -320,11 +194,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 			</td>
 		</tr>
 	</table>
+
 <script>
     function validateForm() {
         let isValid = true;
 
-       
         document.querySelectorAll('.js-error').forEach(el => el.innerText = '');
 
         const fName = document.getElementById('FName').value.trim();
@@ -343,26 +217,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             isValid = false;
         }
 
-       
-        
         if (email === "") {
             document.getElementById('err_EmailAdd').innerText = "Email is required.";
             isValid = false;
         } 
 
-        
         if (phone === "") {
             document.getElementById('err_PHnumber').innerText = "Contact number is required.";
             isValid = false;
         } 
 
-       
         if (address === "") {
             document.getElementById('err_address').innerText = "Shipping address is required.";
             isValid = false;
         }
 
-        
         if (curPass !== "" || pass !== "" || cPass !== "") {
             if (curPass === "") {
                 document.getElementById('err_CurPass').innerText = "Enter current password.";
@@ -380,6 +249,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         return isValid;
     }
-    </script>
+</script>
 </body>
 </html>
