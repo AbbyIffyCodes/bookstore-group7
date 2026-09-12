@@ -1,52 +1,3 @@
-<?php
-session_start();
-require_once 'dbconnection.php';
-
-
-if (!isset($_SESSION['user_role']) || strtolower($_SESSION['user_role']) !== 'employee') {
-    header("Location: login.php");
-    exit();
-}
-
-if (isset($_GET['action']) && $_GET['action'] === 'logout') {
-    session_unset();
-    session_destroy();
-    header("Location: login.php");
-    exit();
-}
-
-$employee_name = isset($_SESSION['username']) ? strtoupper($_SESSION['username']) : 'EMPLOYEE';
-
-
-$pending_count = 0;
-$res_pending = $conn->query("SELECT COUNT(*) AS total FROM orders WHERE Status = 'Pending'");
-if ($res_pending && $row = $res_pending->fetch_assoc()) {
-    $pending_count = $row['total'];
-}
-
-
-$deliveries_count = 0;
-$res_deliv = $conn->query("SELECT COUNT(*) AS total FROM orders WHERE Status = 'Processing' OR Status = 'Shipped'");
-if ($res_deliv && $row = $res_deliv->fetch_assoc()) {
-    $deliveries_count = $row['total'];
-}
-
-
-$out_of_stock_count = 0;
-$res_stock = $conn->query("SELECT COUNT(*) AS total FROM books WHERE Stock <= 0");
-if ($res_stock && $row = $res_stock->fetch_assoc()) {
-    $out_of_stock_count = $row['total'];
-}
-
-
-$recent_orders = [];
-$res_orders = $conn->query("SELECT OrderID, OrderNumber, TotalAmount, OrderType FROM orders ORDER BY OrderDate DESC LIMIT 5");
-if ($res_orders && $res_orders->num_rows > 0) {
-    while ($row = $res_orders->fetch_assoc()) {
-        $recent_orders[] = $row;
-    }
-}
-?>
 <!DOCTYPE html>
 <html>
 <head>
@@ -134,20 +85,20 @@ if ($res_orders && $res_orders->num_rows > 0) {
     <table id="header_table">
         <tr>
             <td>
-                <img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
+                <img src="../public/images/ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
                 <b>BOOKSHOP</b>
             </td>
-            <td align="right"><b>HI, <?php echo htmlspecialchars($employee_name); ?></b></td>
+            <td align="right"><b>HI, EMPLOYEE</b></td>
         </tr>
     </table>
 
     <table id="main_layout">
         <tr>
             <td id="sidebar">
-                <a href="employee_dashboard.php" id="active_menu">DASHBOARD</a>
-                <a href="employee_billing.php">BILLING</a>
-                <a href="employee_transaction.php">STOCK</a>
-                <a href="profile_settings.php">SETTINGS</a>
+                <a href="../controllers/employee_dashboard_controller.php" id="active_menu">DASHBOARD</a>
+                <a href="../controllers/employee_billing_controller.php">BILLING</a>
+                <a href="../controllers/employee_transaction_controller.php">STOCK</a>
+                <a href="../controllers/profile_settings_controller.php">SETTINGS</a>
                 <br><br>
                 <div style="padding: 0 20px;">
                     <button type="button" onclick="confirmLogout()" style="width: 100%;">LOG OUT</button>
@@ -193,7 +144,7 @@ if ($res_orders && $res_orders->num_rows > 0) {
     <script>
         function confirmLogout() {
             if (confirm("Are you sure you want to log out?")) {
-                window.location.href = "employee_dashboard.php?action=logout";
+                window.location.href = "../controllers/employee_dashboard_controller.php?action=logout";
             }
         }
     </script>
