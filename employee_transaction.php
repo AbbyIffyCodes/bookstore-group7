@@ -1,32 +1,3 @@
-<?php
-session_start();
-require_once 'dbconnection.php';
-
-
-if (!isset($_SESSION['user_role']) || strtolower($_SESSION['user_role']) !== 'employee') {
-    header("Location: login.php");
-    exit();
-}
-
-
-if (isset($_GET['action']) && $_GET['action'] === 'logout') {
-    session_unset();
-    session_destroy();
-    header("Location: login.php");
-    exit();
-}
-
-
-$stock_list = [];
-$query = "SELECT BookID, CustomBookID, Title, Category, Stock, Price FROM books ORDER BY BookID ASC";
-$result = $conn->query($query);
-
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $stock_list[] = $row;
-    }
-}
-?>
 <!DOCTYPE html>
 <html>
 <head>
@@ -119,7 +90,7 @@ if ($result && $result->num_rows > 0) {
     <table id="header_table">
         <tr>
             <td>
-                <img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
+                <img src="../public/images/ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo" height="30" align="middle">
                 <b>BOOKSHOP</b>
             </td>
             <td align="right"><b>EMPLOYEE PANEL</b></td>
@@ -129,10 +100,10 @@ if ($result && $result->num_rows > 0) {
     <table id="main_layout">
         <tr>
             <td id="sidebar">
-                <a href="employee_dashboard.php">DASHBOARD</a>
-                <a href="employee_billing.php">BILLING</a>
-                <a href="employee_transaction.php" id="active_menu">STOCK</a>
-                <a href="profile_settings.php">SETTINGS</a>
+                <a href="../controllers/employee_dashboard_controller.php">DASHBOARD</a>
+                <a href="../controllers/employee_billing_controller.php">BILLING</a>
+                <a href="../controllers/employee_transaction_controller.php" id="active_menu">STOCK</a>
+                <a href="../controllers/profile_settings_controller.php">SETTINGS</a>
                 <br><br>
                 <div style="padding: 0 20px;">
                     <button type="button" class="logout-btn" onclick="confirmLogout()">LOG OUT</button>
@@ -143,8 +114,8 @@ if ($result && $result->num_rows > 0) {
                     <legend>STOCK CHECKER</legend>
                     
                     <div style="margin-bottom: 15px;">
-                        <input type="text" id="searchInput" onkeyup="filterStockTable()" placeholder="SEARCH BOOK OR CATEGORY..." style="padding: 6px; width: 250px;">
-                        <button type="button" class="blue-btn" onclick="filterStockTable()">SEARCH</button>
+                        <input type="text" id="searchInput" placeholder="SEARCH BOOK OR CATEGORY..." style="padding: 6px; width: 250px;">
+                        <button type="button" class="blue-btn" onclick="fetchStockData()">SEARCH</button>
                     </div>
 
                     <table id="inventory_table" border="1">
@@ -185,24 +156,61 @@ if ($result && $result->num_rows > 0) {
     <script>
         function confirmLogout() {
             if (confirm("Are you sure you want to log out?")) {
-                window.location.href = "employee_transaction.php?action=logout";
+                window.location.href = "../controllers/employee_transaction_controller.php?action=logout";
             }
         }
 
-        function filterStockTable() {
-            const input = document.getElementById('searchInput').value.toUpperCase();
-            const tbody = document.getElementById('stockTableBody');
-            const rows = tbody.getElementsByTagName('tr');
+        function fetchStockData() {
+            const searchQuery = document.getElementById('searchInput').value;
+            const xhr = new XMLHttpRequest();
 
-            for (let i = 0; i < rows.length; i++) {
-                const text = rows[i].textContent || rows[i].innerText;
-                if (text.toUpperCase().indexOf(input) > -1) {
-                    rows[i].style.display = "";
-                } else {
-                    rows[i].style.display = "none";
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    const data = JSON.parse(xhr.responseText);
+                    const tbody = document.getElementById('stockTableBody');
+                    tbody.innerHTML = '';
+
+                    if (data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5">No matching stock records found.</td></tr>';
+                        return;
+                    }
+
+                    data.forEach(item => {
+                        const customId = item.CustomBookID ? item.CustomBookID : item.BookID;
+                        const stockClass = parseInt(item.Stock) <= 0 ? 'stock-out' : '';
+
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>#${escapeHtml(customId)}</td>
+                                <td>${escapeHtml(item.Title)}</td>
+                                <td>${escapeHtml(item.Category)}</td>
+                                <td>${escapeHtml(item.Price)} TK</td>
+                                <td class="${stockClass}">${escapeHtml(item.Stock)}</td>
+                            </tr>
+                        `;
+                    });
                 }
-            }
+            };
+
+            xhr.open("GET", "../controllers/employee_transaction_controller.php?action=search_stock&query=" + encodeURIComponent(searchQuery));
+            xhr.send();
         }
+
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        document.getElementById('searchInput')?.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                fetchStockData();
+            }
+        });
     </script>
 </body>
 </html>
