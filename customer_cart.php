@@ -1,100 +1,3 @@
-<?php
-session_start();
-require_once 'dbconnection.php';
-
-
-if (!isset($_SESSION['user_role']) || strtolower($_SESSION['user_role']) !== 'customer') {
-    header("Location: login.php");
-    exit();
-}
-
-
-if (!isset($_SESSION['cart'])) {
-    $_SESSION['cart'] = [];
-}
-
-$errors = [];
-$success_msg = "";
-$delivery_fee = 60;
-
-
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    
-   
-    if (isset($_POST['action']) && $_POST['action'] === 'update_cart') {
-        if (isset($_POST['quantities']) && is_array($_POST['quantities'])) {
-            foreach ($_POST['quantities'] as $b_id => $qty) {
-                $b_id = intval($b_id);
-                $qty = intval($qty);
-
-                if ($qty <= 0) {
-                    unset($_SESSION['cart'][$b_id]);
-                } else if (isset($_SESSION['cart'][$b_id])) {
-                    $_SESSION['cart'][$b_id]['qty'] = $qty;
-                }
-            }
-        }
-    }
-
-    
-    if (isset($_POST['action']) && $_POST['action'] === 'checkout') {
-        if (empty($_SESSION['cart'])) {
-            $errors[] = "Your cart is completely empty. Please add books from the shop before checking out.";
-        }
-
-        if (empty($errors)) {
-            $conn->begin_transaction();
-
-            try {
-                $user_id = $_SESSION['user_id'] ?? null;
-                $order_number = "ORD" . rand(1000, 9999);
-                $order_type = "Online";
-                $status = "Pending";
-
-                $calc_subtotal = 0;
-                foreach ($_SESSION['cart'] as $item) {
-                    $calc_subtotal += ($item['price'] * $item['qty']);
-                }
-                $calc_total = $calc_subtotal + $delivery_fee;
-
-             
-                $stmtOrder = $conn->prepare("INSERT INTO orders (OrderNumber, UserID, TotalAmount, OrderType, Status) VALUES (?, ?, ?, ?, ?)");
-                $stmtOrder->bind_param("sidss", $order_number, $user_id, $calc_total, $order_type, $status);
-                $stmtOrder->execute();
-                $order_id = $conn->insert_id;
-                $stmtOrder->close();
-
-         
-                $stmtItem = $conn->prepare("INSERT INTO orderitems (OrderID, BookID, Quantity, UnitPrice) VALUES (?, ?, ?, ?)");
-                foreach ($_SESSION['cart'] as $item) {
-                    $stmtItem->bind_param("iiid", $order_id, $item['id'], $item['qty'], $item['price']);
-                    $stmtItem->execute();
-                }
-                $stmtItem->close();
-
-                $conn->commit();
-                $_SESSION['cart'] = [];
-                $success_msg = "Order #" . $order_number . " placed successfully! Thank you for purchasing.";
-
-            } catch (Exception $e) {
-                $conn->rollback();
-                $errors[] = "Failed to place order: " . $e->getMessage();
-            }
-        }
-    }
-}
-
-
-$subtotal = 0;
-$total_items = 0;
-
-foreach ($_SESSION['cart'] as $item) {
-    $subtotal += ($item['price'] * $item['qty']);
-    $total_items += $item['qty'];
-}
-
-$grand_total = ($subtotal > 0) ? ($subtotal + $delivery_fee) : 0;
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -305,18 +208,18 @@ $grand_total = ($subtotal > 0) ? ($subtotal + $delivery_fee) : 0;
     <table id="page_wrapper">
         <tr id="top_bar">
             <td class="logo-section">
-                <img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="BookShop Logo">
+                <img src="../public/images/ONLINE_BOOKSHOP_LOGO.jpg" alt="BookShop Logo">
                 <span>BookShop</span>
             </td>
             <td class="header-links">
-                <a href="customer_cart.php">Cart(<?php echo $total_items; ?>)</a>
-                <a href="customer_dashboard.php">Customer</a>
+                <a href="../controllers/customer_cart_controller.php">Cart(<?php echo $total_items; ?>)</a>
+                <a href="../controllers/customer_dashboard_controller.php">Customer</a>
             </td>
         </tr>
 
         <tr>
             <td id="main_content" colspan="2">
-                <a href="customer_dashboard.php" class="back-link">&larr; Back to Dashboard</a>
+                <a href="../controllers/customer_dashboard_controller.php" class="back-link">&larr; Back to Dashboard</a>
 
                 <?php if (!empty($errors)): ?>
                     <div class="error-box">
@@ -340,7 +243,7 @@ $grand_total = ($subtotal > 0) ? ($subtotal + $delivery_fee) : 0;
                             <?php if (empty($_SESSION['cart'])): ?>
                                 <div class="empty-msg">Your cart is currently empty.</div>
                             <?php else: ?>
-                                <form id="updateForm" action="" method="POST">
+                                <form id="updateForm" action="../controllers/customer_cart_controller.php" method="POST">
                                     <input type="hidden" name="action" value="update_cart">
                                     <table class="items-table">
                                         <thead>
@@ -406,11 +309,11 @@ $grand_total = ($subtotal > 0) ? ($subtotal + $delivery_fee) : 0;
                                 </tr>
                             </table>
 
-                            <form action="" method="POST" onsubmit="return validateCartCheckout();">
+                            <form action="../controllers/customer_cart_controller.php" method="POST" onsubmit="return validateCartCheckout();">
                                 <input type="hidden" name="action" value="checkout">
                                 <button type="submit" class="btn-checkout">Proceed to Checkout</button>
                             </form>
-                            <a href="customer_shop.php" class="btn-continue">Continue Shopping</a>
+                            <a href="../controllers/customer_shop_controller.php" class="btn-continue">Continue Shopping</a>
                         </td>
                     </tr>
                 </table>

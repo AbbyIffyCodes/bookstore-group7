@@ -1,58 +1,3 @@
-<?php
-session_start();
-require_once 'dbconnection.php';
-
-
-if (!isset($_SESSION['user_role']) || strtolower($_SESSION['user_role']) !== 'customer') {
-    header("Location: login.php");
-    exit();
-}
-
-
-if (isset($_POST['logout'])) {
-    session_unset();
-    session_destroy();
-    header("Location: login.php");
-    exit();
-}
-
-$user_id = $_SESSION['user_id'] ?? 0;
-$user_name = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : "CUSTOMER";
-
-
-$total_orders = 0;
-$pending_orders = 0;
-$delivered_orders = 0;
-$recent_orders = [];
-
-if ($user_id > 0) {
-
-    $stmtCount = $conn->prepare("SELECT 
-        COUNT(*) AS total, 
-        SUM(CASE WHEN LOWER(Status) = 'pending' THEN 1 ELSE 0 END) AS pending, 
-        SUM(CASE WHEN LOWER(Status) = 'delivered' THEN 1 ELSE 0 END) AS delivered 
-        FROM orders WHERE UserID = ?");
-    $stmtCount->bind_param("i", $user_id);
-    $stmtCount->execute();
-    $resCount = $stmtCount->get_result();
-    if ($row = $resCount->fetch_assoc()) {
-        $total_orders = $row['total'] ?? 0;
-        $pending_orders = $row['pending'] ?? 0;
-        $delivered_orders = $row['delivered'] ?? 0;
-    }
-    $stmtCount->close();
-
-    
-    $stmtRecent = $conn->prepare("SELECT OrderNumber, TotalAmount, Status FROM orders WHERE UserID = ? ORDER BY OrderID DESC LIMIT 4");
-    $stmtRecent->bind_param("i", $user_id);
-    $stmtRecent->execute();
-    $resRecent = $stmtRecent->get_result();
-    while ($rRow = $resRecent->fetch_assoc()) {
-        $recent_orders[] = $rRow;
-    }
-    $stmtRecent->close();
-}
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -214,7 +159,7 @@ if ($user_id > 0) {
     <table id="page_wrapper">
         <tr id="top_bar">
             <td class="logo-section">
-                <img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo">
+                <img src="../public/images/ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo">
                 <span>BookShop</span>
             </td>
             <td class="user-greeting">
@@ -224,13 +169,13 @@ if ($user_id > 0) {
 
         <tr>
             <td id="sidebar">
-                <a href="customer_dashboard.php" class="nav-btn active">DASHBOARD</a>
-                <a href="customer_cart.php" class="nav-btn">CART</a>
-                <a href="customer_shop.php" class="nav-btn">SHOP</a>
-                <a href="profile_settings.php" class="nav-btn">SETTINGS</a>
-                <a href="customer_orderhistory.php" class="nav-btn">HISTORY</a>
+                <a href="../controllers/customer_dashboard_controller.php" class="nav-btn active">DASHBOARD</a>
+                <a href="../controllers/customer_cart_controller.php" class="nav-btn">CART</a>
+                <a href="../controllers/customer_shop_controller.php" class="nav-btn">SHOP</a>
+                <a href="../controllers/profile_settings_controller.php" class="nav-btn">SETTINGS</a>
+                <a href="../controllers/customer_orderhistory_controller.php" class="nav-btn">HISTORY</a>
 
-                <form method="POST" action="" onsubmit="return confirmLogout();">
+                <form method="POST" action="../controllers/customer_dashboard_controller.php" onsubmit="return confirmLogout();">
                     <button type="submit" name="logout" class="logout-btn">LOG OUT</button>
                 </form>
             </td>

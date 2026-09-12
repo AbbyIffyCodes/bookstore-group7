@@ -1,51 +1,3 @@
-<?php
-session_start();
-require_once 'dbconnection.php';
-
-
-if (!isset($_SESSION['user_role']) || strtolower($_SESSION['user_role']) !== 'customer') {
-    header("Location: login.php");
-    exit();
-}
-
-$user_id = $_SESSION['user_id'] ?? 0;
-$order_history = [];
-
-
-if ($user_id > 0) {
-    $query = "SELECT o.OrderID, o.OrderNumber, o.OrderDate, o.TotalAmount, o.Status, 
-                     IFNULL(SUM(oi.Quantity), 0) AS TotalItems
-              FROM orders o
-              LEFT JOIN orderitems oi ON o.OrderID = oi.OrderID
-              WHERE o.UserID = ?
-              GROUP BY o.OrderID
-              ORDER BY o.OrderID DESC";
-
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $res = $stmt->get_result();
-
-    while ($row = $res->fetch_assoc()) {
-        $order_history[] = [
-            'order_id' => $row['OrderNumber'],
-            'date'     => date('j F Y', strtotime($row['OrderDate'])),
-            'items'    => $row['TotalItems'],
-            'amount'   => $row['TotalAmount'],
-            'status'   => $row['Status']
-        ];
-    }
-    $stmt->close();
-}
-
-
-$total_cart_items = 0;
-if (isset($_SESSION['cart']) && is_array($_SESSION['cart'])) {
-    foreach ($_SESSION['cart'] as $item) {
-        $total_cart_items += $item['qty'];
-    }
-}
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -174,18 +126,18 @@ if (isset($_SESSION['cart']) && is_array($_SESSION['cart'])) {
     <table id="page_wrapper">
         <tr id="top_bar">
             <td class="logo-section">
-                <img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="BookShop Logo">
+                <img src="../public/images/ONLINE_BOOKSHOP_LOGO.jpg" alt="BookShop Logo">
                 <span>BookShop</span>
             </td>
             <td class="header-links">
-                <a href="customer_cart.php">Cart(<?php echo $total_cart_items; ?>)</a>
-                <a href="customer_dashboard.php">Customer</a>
+                <a href="../controllers/customer_cart_controller.php">Cart(<?php echo $total_cart_items; ?>)</a>
+                <a href="../controllers/customer_dashboard_controller.php">Customer</a>
             </td>
         </tr>
 
         <tr>
             <td id="main_content" colspan="2">
-                <a href="customer_dashboard.php" class="back-link">&larr; Back to Dashboard</a>
+                <a href="../controllers/customer_dashboard_controller.php" class="back-link">&larr; Back to Dashboard</a>
 
                 <div id="history_box">
                     <?php if (empty($order_history)): ?>

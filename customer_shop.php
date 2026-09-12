@@ -1,109 +1,3 @@
-<?php
-session_start();
-require_once 'dbconnection.php';
-
-if (!isset($_SESSION['user_role']) || strtolower($_SESSION['user_role']) !== 'customer') {
-    header("Location: login.php");
-    exit();
-}
-
-if (!isset($_SESSION['cart'])) {
-    $_SESSION['cart'] = [];
-}
-
-
-if (isset($_GET['action']) && $_GET['action'] === 'search_books') {
-    header('Content-Type: application/json');
-
-    $category = $_GET['category'] ?? '';
-    $query = $_GET['query'] ?? '';
-
-    $sql = "SELECT BookID, Title, Price, Category, Image FROM books WHERE Title LIKE ?";
-    $searchTerm = "%" . $query . "%";
-
-    if (!empty($category) && $category !== 'All') {
-        $sql .= " AND Category = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ss", $searchTerm, $category);
-    } else {
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $searchTerm);
-    }
-
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $books = [];
-
-    while ($row = $result->fetch_assoc()) {
-        $books[] = [
-            'id'       => $row['BookID'],
-            'title'    => $row['Title'],
-            'price'    => $row['Price'],
-            'category' => $row['Category'],
-            'img'      => !empty($row['Image']) ? $row['Image'] : 'images/default_cover.jpg'
-        ];
-    }
-
-    echo json_encode($books);
-    exit; 
-}
-
-$message = "";
-
-
-$books = [];
-$query = "SELECT BookID, Title, Price, Category, Image FROM books";
-$result = $conn->query($query);
-
-if ($result && $result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $books[] = [
-            'id'       => $row['BookID'],
-            'title'    => $row['Title'],
-            'price'    => $row['Price'],
-            'category' => $row['Category'],
-            'img'      => !empty($row['Image']) ? $row['Image'] : 'images/default_cover.jpg'
-        ];
-    }
-}
-
-
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['add_to_cart'])) {
-    $book_id = intval($_POST['book_id']);
-
-    if ($book_id <= 0) {
-        $message = "Invalid book selection.";
-    } else {
-        $stmt = $conn->prepare("SELECT BookID, Title, Price, Image FROM books WHERE BookID = ?");
-        $stmt->bind_param("i", $book_id);
-        $stmt->execute();
-        $res = $stmt->get_result();
-
-        if ($res && $selected_book = $res->fetch_assoc()) {
-            if (isset($_SESSION['cart'][$book_id])) {
-                $_SESSION['cart'][$book_id]['qty'] += 1;
-            } else {
-                $_SESSION['cart'][$book_id] = [
-                    'id'    => $selected_book['BookID'],
-                    'title' => $selected_book['Title'],
-                    'price' => $selected_book['Price'],
-                    'image' => !empty($selected_book['Image']) ? $selected_book['Image'] : 'images/default_cover.jpg',
-                    'qty'   => 1
-                ];
-            }
-            $message = "Added '" . htmlspecialchars($selected_book['Title']) . "' to your cart!";
-        } else {
-            $message = "Book not found.";
-        }
-        $stmt->close();
-    }
-}
-
-$total_cart_items = 0;
-foreach ($_SESSION['cart'] as $item) {
-    $total_cart_items += $item['qty'];
-}
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -318,15 +212,15 @@ foreach ($_SESSION['cart'] as $item) {
     <table id="page_wrapper">
         <tr id="top_bar">
             <td class="logo-section" width="25%">
-                <img src="ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo">
+                <img src="../public/images/ONLINE_BOOKSHOP_LOGO.jpg" alt="Logo">
                 <span>BookShop</span>
             </td>
             <td class="search-box" width="50%" align="center">
                 <input type="text" id="searchInput" placeholder="Search books, category...">
             </td>
             <td class="header-links" width="25%">
-                <a href="customer_cart.php">Cart(<span id="cart_counter_val"><?php echo $total_cart_items; ?></span>)</a>
-                <a href="customer_dashboard.php">Customer</a>
+                <a href="../controllers/customer_cart_controller.php">Cart(<span id="cart_counter_val"><?php echo $total_cart_items; ?></span>)</a>
+                <a href="../controllers/customer_dashboard_controller.php">Customer</a>
             </td>
         </tr>
 
@@ -339,11 +233,11 @@ foreach ($_SESSION['cart'] as $item) {
                 <span class="cat-link" onclick="selectCategory('Science', this)">Science</span>
                 <span class="cat-link" onclick="selectCategory('Business', this)">Business</span>
                 <span class="cat-link" onclick="selectCategory('History', this)">History</span>
-                <span class="cat-link" onclick="selectCategory('Self Help', this)">Self Help</span>
+                <span class="cat-link" onclick="selectCategory('Self-Help', this)">Self Help</span>
             </td>
 
             <td id="content_area">
-                <a href="customer_dashboard.php" class="nav-dashboard-link">&larr; Back to Dashboard</a>
+                <a href="../controllers/customer_dashboard_controller.php" class="nav-dashboard-link">&larr; Back to Dashboard</a>
 
                 <?php if (!empty($message)): ?>
                     <div class="msg-box"><?php echo $message; ?></div>
@@ -361,7 +255,7 @@ foreach ($_SESSION['cart'] as $item) {
                             <div class="book-title"><?php echo htmlspecialchars($book['title']); ?></div>
                             <div class="book-price"><?php echo htmlspecialchars($book['price']); ?> TK</div>
 
-                            <form method="POST" action="" onsubmit="return validateAddToCart(this);">
+                            <form method="POST" action="../controllers/customer_shop_controller.php" onsubmit="return validateAddToCart(this);">
                                 <input type="hidden" name="add_to_cart" value="1">
                                 <input type="hidden" name="book_id" value="<?php echo $book['id']; ?>">
                                 <button type="submit" class="add-btn">Add to Cart</button>
@@ -391,45 +285,39 @@ foreach ($_SESSION['cart'] as $item) {
 
         function fetchBooks() {
             const searchQuery = document.getElementById('searchInput')?.value || '';
+            const xhr = new XMLHttpRequest();
 
-            const params = new URLSearchParams({
-                action: 'search_books',
-                category: currentSelectedCategory,
-                query: searchQuery
-            });
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    const data = JSON.parse(xhr.responseText);
+                    const grid = document.getElementById('booksGrid');
+                    grid.innerHTML = ''; 
 
-            fetch(`customer_shop.php?${params.toString()}`, {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
+                    if (data.length === 0) {
+                        grid.innerHTML = '<p>No books found.</p>';
+                        return;
+                    }
+
+                    data.forEach(book => {
+                        grid.innerHTML += `
+                            <div class="book-card" data-category="${escapeHtml(book.category)}" data-title="${escapeHtml(book.title.toLowerCase())}">
+                                <img src="${escapeHtml(book.img)}" alt="${escapeHtml(book.title)}">
+                                <div class="book-title">${escapeHtml(book.title)}</div>
+                                <div class="book-price">${escapeHtml(book.price)} TK</div>
+                                <form method="POST" action="../controllers/customer_shop_controller.php" onsubmit="return validateAddToCart(this);">
+                                    <input type="hidden" name="add_to_cart" value="1">
+                                    <input type="hidden" name="book_id" value="${book.id}">
+                                    <button type="submit" class="add-btn">Add to Cart</button>
+                                </form>
+                            </div>
+                        `;
+                    });
                 }
-            })
-            .then(response => response.json())
-            .then(data => {
-                const grid = document.getElementById('booksGrid');
-                grid.innerHTML = ''; 
+            };
 
-                if (data.length === 0) {
-                    grid.innerHTML = '<p>No books found.</p>';
-                    return;
-                }
-
-                data.forEach(book => {
-                    grid.innerHTML += `
-                        <div class="book-card" data-category="${book.category}" data-title="${book.title.toLowerCase()}">
-                            <img src="${book.img}" alt="${book.title}">
-                            <div class="book-title">${book.title}</div>
-                            <div class="book-price">${book.price} TK</div>
-                            <form method="POST" action="" onsubmit="return validateAddToCart(this);">
-                                <input type="hidden" name="add_to_cart" value="1">
-                                <input type="hidden" name="book_id" value="${book.id}">
-                                <button type="submit" class="add-btn">Add to Cart</button>
-                            </form>
-                        </div>
-                    `;
-                });
-            })
-            .catch(error => console.error('Error fetching books:', error));
+            const url = "../controllers/customer_shop_controller.php?action=search_books&category=" + encodeURIComponent(currentSelectedCategory) + "&query=" + encodeURIComponent(searchQuery);
+            xhr.open("GET", url);
+            xhr.send();
         }
 
         function selectCategory(category, element) {
@@ -452,7 +340,17 @@ foreach ($_SESSION['cart'] as $item) {
             return true;
         }
 
-        document.getElementById('searchInput')?.addEventListener('input', fetchBooks);
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        document.getElementById('searchInput')?.addEventListener('keyup', fetchBooks);
     </script>
 </body>
 </html>
